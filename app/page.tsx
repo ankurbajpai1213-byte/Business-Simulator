@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { INITIAL_STATE, applyDecision, advanceDay, formatINR, type Decision, type GameState } from "@/lib/simulation";
+import { INITIAL_STATE, formatINR, type Decision, type GameState } from "@/lib/simulation";
 
 const decisionLabels: Array<[Decision, string, string]> = [
   ["raise-price", "Raise prices", "Increase average ticket, but demand may soften."],
@@ -19,11 +19,6 @@ export default function Home() {
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [feedbackSent, setFeedbackSent] = useState(false);
   const [busy, setBusy] = useState(false);
-
-  const choose = (decision: Decision) => {
-    setSelected(decision);
-    setState((current) => applyDecision(current, decision));
-  };
 
   const endDay = async () => {
     setBusy(true);
@@ -94,13 +89,13 @@ export default function Home() {
             <h2 className="section-title">What will you do today?</h2>
             <div className="actions">
               {decisionLabels.map(([id, title, description]) => (
-                <button key={id} className="action" onClick={() => choose(id)}>
+                <button key={id} className="action" onClick={() => setSelected(id)}>
                   <strong>{selected === id ? "✓ " : ""}{title}</strong>
                   <small>{description}</small>
                 </button>
               ))}
             </div>
-            <div className="notice">Selected action: <strong>{selected ? decisionLabels.find(([id]) => id === selected)?.[1] : "none"}</strong>. Your choice is applied by the simulation before the day ends.</div>
+            <div className="notice">Selected action: <strong>{selected ? decisionLabels.find(([id]) => id === selected)?.[1] : "none"}</strong>. Your choice is applied by the server-side simulation when the day ends.</div>
             <button className="primary" onClick={endDay} disabled={busy}>{busy ? "Processing…" : "End day →"}</button>
           </section>
 
