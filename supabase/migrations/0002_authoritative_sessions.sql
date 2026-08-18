@@ -1,9 +1,5 @@
 -- v0.1 authoritative game-session migration.
--- Run this through Supabase migrations before enabling the persistent game API.
-
-alter table public.player_feedback
-  add constraint player_feedback_session_id_fkey
-  foreign key (session_id) references public.game_sessions(id) on delete set null;
+-- 0001 already creates the feedback -> session foreign key.
 
 create or replace function public.set_updated_at()
 returns trigger
