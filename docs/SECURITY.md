@@ -12,7 +12,7 @@
 
 ## Current v0.1 flow
 
-The browser receives a short-lived anonymous game-session cookie containing only a random session identifier. The server loads the authoritative state from Supabase for every turn and AI interaction.
+The browser receives an HTTP-only anonymous game-session cookie containing only a random session identifier. The server loads authoritative state from Supabase for every turn and AI interaction.
 
 Simulation:
 
