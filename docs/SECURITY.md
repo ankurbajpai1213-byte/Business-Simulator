@@ -10,22 +10,34 @@
 6. Secrets must never be committed to GitHub.
 7. Supabase service-role credentials are server-only.
 
-## Prototype status
+## Current v0.1 flow
 
-The current simulation endpoint accepts a state payload from the browser so the vertical slice can be played before Supabase is configured. This is intentionally temporary.
+The browser receives a short-lived anonymous game-session cookie containing only a random session identifier. The server loads the authoritative state from Supabase for every turn and AI interaction.
 
-Before public testing, replace that flow with:
+Simulation:
 
-Browser → authenticated session ID → server loads state from Supabase → server applies decision → server persists state → browser receives result.
+Browser → HTTP-only session cookie → server → Supabase state → simulation engine → Supabase update → browser
 
-The OpenAI endpoint already follows the required server-side boundary.
+AI:
 
-## Future hardening
+Browser → HTTP-only session cookie + player message → server → Supabase state → constrained OpenAI request → browser
 
-- Supabase Auth and Row Level Security ownership policies
+The browser never submits cash, revenue, reputation, inventory, or other authoritative values.
+
+## Database security
+
+- Supabase Row Level Security is enabled on prototype tables.
+- The anonymous prototype does not expose public table-write policies.
+- The server uses the Supabase service role for controlled persistence.
+- Supabase Auth and user-ownership policies are the next hardening step before broad public testing.
+
+## Remaining hardening before external users
+
+- Supabase Auth and per-user session ownership
 - Rate limiting on simulation and AI endpoints
-- Request body size limits
-- Abuse protection / WAF as traffic warrants
-- Structured OpenAI outputs with schema validation
-- Server-side event and cost logging
-- Idempotency for turn submission
+- Request body size limits and abuse protection
+- WAF/CDN controls as traffic warrants
+- Structured OpenAI outputs with schema validation where AI results affect state
+- Server-side AI/event/cost logging
+- Idempotency/concurrency protection for turn submission
+- Production monitoring and alerting
