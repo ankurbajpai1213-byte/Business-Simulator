@@ -67,15 +67,19 @@ AI must not directly mutate authoritative game state or invent financial values 
 
 Expected flow:
 
-Browser → authenticated backend → load/validate game state → construct constrained AI request → OpenAI → validate structured response → apply simulation rules → persist state → browser.
+Browser → HTTP-only game-session cookie → authenticated/authorized backend → load state from Supabase → constrained AI request → OpenAI → browser.
+
+For simulation turns:
+
+Browser → HTTP-only game-session cookie + decision → backend → load state from Supabase → simulation engine → persist state → browser.
 
 ## 6. Security baseline
 
 - Treat browser input as untrusted.
-- Authenticate requests before accessing player state.
+- Do not accept authoritative state from the browser.
 - Authorize every game-session mutation.
 - Validate and constrain request payloads.
-- Rate-limit AI-facing endpoints.
+- Rate-limit AI-facing endpoints before external testing.
 - Keep OpenAI and Supabase privileged credentials server-side.
 - Never trust client-provided cash, revenue, reputation, inventory, or other authoritative values.
 - Use Supabase Row Level Security for user-owned data.
@@ -123,6 +127,10 @@ Feedback should be associated with a game/session context where appropriate whil
 - Large external-data ingestion pipeline
 - LLM-controlled economics
 
-## 10. Expansion gate
+## 10. Current engineering milestone
+
+The first vertical slice now has a server-authoritative session path backed by Supabase. The next integration step is to apply the Supabase migrations and configure deployment secrets, then test a complete persisted play session.
+
+## 11. Expansion gate
 
 Do not expand the content surface until the Mumbai café vertical slice is playable end-to-end and produces useful playtest feedback.
