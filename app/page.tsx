@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { INITIAL_STATE, formatINR, type Decision, type GameState } from "@/lib/simulation";
 
 const decisionLabels: Array<[Decision, string, string]> = [
@@ -12,55 +12,94 @@ const decisionLabels: Array<[Decision, string, string]> = [
 ];
 
 export default function Home() {
-  const [state, setState] = useState<GameState>(INITIAL_STATE);
+  const [state, setState] = useState<GameState | null>(null);
   const [selected, setSelected] = useState<Decision | null>(null);
   const [customerMessage, setCustomerMessage] = useState("");
   const [customerReply, setCustomerReply] = useState("A customer is waiting to talk to you.");
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [feedbackSent, setFeedbackSent] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    fetch("/api/game/session")
+      .then(async (response) => {
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || "Unable to start game.");
+        setState(data.state as GameState);
+      })
+      .catch((err: Error) => setError(err.message));
+  }, []);
 
   const endDay = async () => {
+    if (!state || !selected) return;
     setBusy(true);
+    setError("");
     try {
       const response = await fetch("/api/simulate-turn", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ state, decision: selected || "inventory" }),
+        body: JSON.stringify({ decision: selected }),
       });
       const data = await response.json();
-      if (response.ok) setState(data.state);
+      if (!response.ok) throw new Error(data.error || "Unable to advance simulation.");
+      setState(data.state as GameState);
       setSelected(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to advance simulation.");
     } finally {
       setBusy(false);
     }
   };
 
   const talkToCustomer = async () => {
-    if (!customerMessage.trim()) return;
+    if (!state || !customerMessage.trim()) return;
     setBusy(true);
+    setError("");
     try {
       const response = await fetch("/api/ai/customer", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ playerMessage: customerMessage, businessContext: `Day ${state.day}, reputation ${state.reputation}/100` }),
+        body: JSON.stringify({
+          playerMessage: customerMessage,
+          businessContext: `Day ${state.day}, cash ${formatINR(state.cash)}, reputation ${state.reputation}/100, Mumbai cafe`,
+        }),
       });
       const data = await response.json();
-      setCustomerReply(data.message || data.error || "The customer has nothing more to say.");
+      if (!response.ok) throw new Error(data.error || "AI interaction failed.");
+      setCustomerReply(data.message || "The customer has nothing more to say.");
       setCustomerMessage("");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "AI interaction failed.");
     } finally {
       setBusy(false);
     }
   };
 
   const submitFeedback = async (rating: number) => {
-    await fetch("/api/feedback", {
+    if (!state) return;
+    const response = await fetch("/api/feedback", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ rating, replay: rating >= 4, realism: 3, difficulty: 3, sessionDays: state.day }),
     });
-    setFeedbackSent(true);
+    if (response.ok) setFeedbackSent(true);
   };
+
+  if (!state) {
+    return (
+      <main className="shell">
+        <div className="container">
+          <section className="hero">
+            <div className="badge">BUSINESS SIMULATOR • PROTOTYPE</div>
+            <h1>Starting your Mumbai café…</h1>
+            <p>{error || "Creating a secure server-side game session."}</p>
+            {error && <button className="primary" onClick={() => window.location.reload()}>Try again</button>}
+          </section>
+        </div>
+      </main>
+    );
+  }
 
   return (
     <main className="shell">
@@ -74,6 +113,7 @@ export default function Home() {
           <div className="badge">DAY {state.day}</div>
           <h1>Can you build a café that survives Mumbai?</h1>
           <p>Every day is a decision. Manage cash, demand, staff and reputation. The simulation engine owns the numbers; AI brings the people to life.</p>
+          {error && <div className="notice">{error}</div>}
         </section>
 
         <section className="grid metrics">
@@ -89,14 +129,14 @@ export default function Home() {
             <h2 className="section-title">What will you do today?</h2>
             <div className="actions">
               {decisionLabels.map(([id, title, description]) => (
-                <button key={id} className="action" onClick={() => setSelected(id)}>
+                <button key={id} className="action" onClick={() => setSelected(id)} disabled={busy}>
                   <strong>{selected === id ? "✓ " : ""}{title}</strong>
                   <small>{description}</small>
                 </button>
               ))}
             </div>
-            <div className="notice">Selected action: <strong>{selected ? decisionLabels.find(([id]) => id === selected)?.[1] : "none"}</strong>. Your choice is applied by the server-side simulation when the day ends.</div>
-            <button className="primary" onClick={endDay} disabled={busy}>{busy ? "Processing…" : "End day →"}</button>
+            <div className="notice">Selected action: <strong>{selected ? decisionLabels.find(([id]) => id === selected)?.[1] : "none"}</strong>. The server loads your saved state and applies the decision.</div>
+            <button className="primary" onClick={endDay} disabled={busy || !selected}>{busy ? "Processing…" : "End day →"}</button>
           </section>
 
           <section className="panel">
@@ -108,7 +148,7 @@ export default function Home() {
               <div className="market-row"><span>Product quality</span><strong>{state.quality}/100</strong></div>
               <div className="market-row"><span>Inventory health</span><strong>{state.inventory}/100</strong></div>
             </div>
-            <div className="notice">Your objective: become profitable and survive as long as possible. Bankruptcy occurs when cash reaches zero.</div>
+            <div className="notice">Objective: become profitable and survive as long as possible.</div>
           </section>
         </div>
 
@@ -127,7 +167,7 @@ export default function Home() {
           </section>
         </div>
 
-        <div className="footer">Prototype v0.1 • Server-side simulation boundary • OpenAI and Supabase are configured through environment secrets.</div>
+        <div className="footer">Prototype v0.1 • Server-authoritative simulation • OpenAI and Supabase credentials stay server-side.</div>
       </div>
     </main>
   );
