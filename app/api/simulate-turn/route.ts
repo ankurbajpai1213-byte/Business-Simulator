@@ -23,25 +23,35 @@ export async function POST(request: Request) {
     let resolvedEventTitle: string | null = null;
     let resolvedEventId: string | null = null;
     let resolvedEventOption: string | null = null;
+
     if (currentState.currentEvent) {
       if (!body.eventOption) return NextResponse.json({ error: "Resolve the current business event first." }, { status: 409 });
-      const valid = currentState.currentEvent.options.some((option) => option.id === body.eventOption);
-      if (!valid) return NextResponse.json({ error: "Invalid event decision." }, { status: 400 });
+      const option = currentState.currentEvent.options.find((item) => item.id === body.eventOption);
+      if (!option) return NextResponse.json({ error: "Invalid event decision." }, { status: 400 });
+      if (currentState.cash < option.cost) return NextResponse.json({ error: `That event option needs ${option.cost.toLocaleString("en-IN")} more cash than you currently have.` }, { status: 409 });
       resolvedEventTitle = currentState.currentEvent.title;
       resolvedEventId = currentState.currentEvent.id;
       resolvedEventOption = body.eventOption;
       currentState = applyEvent(currentState, body.eventOption);
     }
+
     if (!body.decision || !decisions.has(body.decision)) return NextResponse.json({ error: "Invalid simulation request." }, { status: 400 });
-    if (!isDecisionAvailable(currentState, body.decision)) return NextResponse.json({ error: "That decision is not available yet or there is not enough cash for it." }, { status: 409 });
+    if (!isDecisionAvailable(currentState, body.decision)) return NextResponse.json({ error: "That decision is not available yet, is already at its maximum, or there is not enough cash for it." }, { status: 409 });
 
     currentState = applyDecision(currentState, body.decision);
     const turnSpend = Math.max(0, turnCashBefore - currentState.cash);
     const rainToday = resolvedEventId === "rain";
-    const nextState = advanceDay(currentState, body.decision, turnSpend, rainToday);
+    const nextState = advanceDay(currentState, body.decision, turnSpend, rainToday, resolvedEventId as GameState["currentEvent"] extends infer _ ? any : never, resolvedEventOption);
     const event = generateEvent(nextState);
     nextState.currentEvent = event;
-    const status = nextState.cash <= 0 ? "bankrupt" : nextState.day >= 91 && nextState.cumulativeProfit > 0 ? "won" : "active";
+
+    const status = nextState.cash <= 0
+      ? "bankrupt"
+      : nextState.day >= 91 && nextState.cumulativeProfit > 0
+        ? "won"
+        : nextState.day >= 91
+          ? "completed"
+          : "active";
 
     const { data: updated, error: updateError } = await supabase
       .from("game_sessions")
