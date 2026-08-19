@@ -40,5 +40,10 @@ alter table public.game_sessions enable row level security;
 alter table public.game_events enable row level security;
 alter table public.player_feedback enable row level security;
 
--- No public policies: the anonymous prototype accesses these tables only through
--- the server-side service role. Authenticated ownership policies will be added later.
+-- The anonymous prototype accesses these tables only through the server-side
+-- service role. Explicit grants are required for Supabase Data API access.
+grant select, insert, update, delete on table public.game_sessions to service_role;
+grant select, insert, update, delete on table public.game_events to service_role;
+grant select, insert, update, delete on table public.player_feedback to service_role;
+
+-- No public policies: authenticated/browser access will be added later.
