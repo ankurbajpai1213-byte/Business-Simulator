@@ -1,0 +1,40 @@
+name: One-time lower-price UI fix
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    if: github.event.head_commit.message != 'Fix lower-price availability UI'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Fix decision availability
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('lib/simulation.ts')
+          text = path.read_text()
+          old = 'export function getAvailableDecisions(state: GameState): Decision[] { if (state.day === 1) return ["marketing", "hire", "inventory", "no-action"]; if (state.day === 2) return ["marketing", "hire", "quality", "inventory", "no-action"]; return ["raise-price", "lower-price", "marketing", "hire", "quality", "inventory", "no-action"]; }'
+          new = 'export function getAvailableDecisions(state: GameState): Decision[] { let decisions: Decision[]; if (state.day === 1) decisions = ["marketing", "hire", "inventory", "no-action"]; else if (state.day === 2) decisions = ["marketing", "hire", "quality", "inventory", "no-action"]; else decisions = ["raise-price", "lower-price", "marketing", "hire", "quality", "inventory", "no-action"]; return decisions.filter(decision => (decision !== "raise-price" || state.priceIndex < 140) && (decision !== "lower-price" || state.priceIndex > 100) && (decision === "no-action" || decision === "raise-price" || decision === "lower-price" || state.cash >= getDecisionCost(decision))); }'
+          if old not in text:
+              raise SystemExit('Expected decision function was not found')
+          path.write_text(text.replace(old, new, 1))
+          PY
+
+      - name: Commit fix and remove one-time workflow
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add lib/simulation.ts
+          git rm .github/workflows/one-time-fix-lower-price.yml
+          git commit -m "Fix lower-price availability UI"
+          git push origin HEAD:main
