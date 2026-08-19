@@ -4,7 +4,7 @@ import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
 import { applyDecision, advanceDay, applyEvent, generateEvent, isDecisionAvailable, type Decision, type GameState } from "@/lib/simulation";
 
 const SESSION_COOKIE = "bs_session";
-const decisions = new Set<Decision>(["raise-price", "marketing", "hire", "quality", "inventory", "no-action"]);
+const decisions = new Set<Decision>(["raise-price", "lower-price", "marketing", "hire", "quality", "inventory", "no-action"]);
 
 export async function POST(request: Request) {
   try {
@@ -16,7 +16,10 @@ export async function POST(request: Request) {
     if (loadError || !session) return NextResponse.json({ error: "Game session not found." }, { status: 404 });
     if (session.status !== "active") return NextResponse.json({ error: "This game is already finished." }, { status: 409 });
 
-    let currentState = session.state as GameState;
+    const originalState = session.state as GameState;
+    const expectedDay = originalState.day;
+    const turnCashBefore = originalState.cash;
+    let currentState = originalState;
     let resolvedEventTitle: string | null = null;
     let resolvedEventId: string | null = null;
     let resolvedEventOption: string | null = null;
@@ -30,16 +33,26 @@ export async function POST(request: Request) {
       currentState = applyEvent(currentState, body.eventOption);
     }
     if (!body.decision || !decisions.has(body.decision)) return NextResponse.json({ error: "Invalid simulation request." }, { status: 400 });
-    if (!isDecisionAvailable(currentState, body.decision)) return NextResponse.json({ error: "That decision is not available yet. Try a more appropriate move for this stage of the business." }, { status: 409 });
+    if (!isDecisionAvailable(currentState, body.decision)) return NextResponse.json({ error: "That decision is not available yet or there is not enough cash for it." }, { status: 409 });
 
-    const cashBefore = currentState.cash;
-    const nextState = advanceDay(applyDecision(currentState, body.decision), body.decision);
+    currentState = applyDecision(currentState, body.decision);
+    const turnSpend = Math.max(0, turnCashBefore - currentState.cash);
+    const rainToday = resolvedEventId === "rain";
+    const nextState = advanceDay(currentState, body.decision, turnSpend, rainToday);
     const event = generateEvent(nextState);
     nextState.currentEvent = event;
     const status = nextState.cash <= 0 ? "bankrupt" : nextState.day >= 91 && nextState.cumulativeProfit > 0 ? "won" : "active";
 
-    const { error: updateError } = await supabase.from("game_sessions").update({ state: nextState, status }).eq("id", sessionId).eq("status", "active");
+    const { data: updated, error: updateError } = await supabase
+      .from("game_sessions")
+      .update({ state: nextState, status })
+      .eq("id", sessionId)
+      .eq("status", "active")
+      .eq("state->>day", String(expectedDay))
+      .select("id")
+      .maybeSingle();
     if (updateError) throw updateError;
+    if (!updated) return NextResponse.json({ error: "This turn was already submitted. Refresh the game and continue from the latest day." }, { status: 409 });
 
     const { error: eventError } = await supabase.from("game_events").insert({
       session_id: sessionId,
@@ -55,8 +68,9 @@ export async function POST(request: Request) {
         profit: nextState.profit,
         customers: nextState.customers,
         totalCustomers: nextState.totalCustomers,
-        cashBefore,
+        cashBefore: turnCashBefore,
         cash: nextState.cash,
+        turnSpend,
         reputation: nextState.reputation,
         staff: nextState.staff,
         quality: nextState.quality,
