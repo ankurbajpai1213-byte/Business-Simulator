@@ -1,15 +1,39 @@
 export type Location = "high-footfall" | "residential" | "premium";
 export type BusinessFormat = "takeaway" | "small-cafe" | "full-cafe";
-export type MenuItemId = "filter-coffee" | "masala-chai" | "espresso" | "cappuccino" | "sandwich" | "breakfast";
+export type MenuItemId =
+  | "filter-coffee" | "instant-coffee" | "masala-chai" | "lemon-tea"
+  | "bun-maska" | "butter-toast" | "samosa" | "vada-pav" | "veg-sandwich" | "poha-upma"
+  | "espresso" | "cappuccino" | "cold-coffee" | "milkshake"
+  | "grilled-sandwich" | "fries" | "pasta" | "rice-meal" | "biryani" | "paneer-main" | "dessert";
 export type MenuItem = { id: MenuItemId; name: string; setupCost: number; weeklyCost: number; ticketImpact: number; demandImpact: number; infrastructure: "basic" | "beverage" | "kitchen" };
+
+// Keep the menu intentionally compact: each item represents a realistic menu family,
+// rather than every possible recipe. This gives players meaningful setup choices without
+// turning the simulation engine into a recipe-level model.
 export const MENU_ITEMS: MenuItem[] = [
   { id: "filter-coffee", name: "Filter Coffee", setupCost: 20000, weeklyCost: 5000, ticketImpact: 0, demandImpact: 4, infrastructure: "basic" },
+  { id: "instant-coffee", name: "Instant Coffee", setupCost: 10000, weeklyCost: 4500, ticketImpact: 5, demandImpact: 4, infrastructure: "basic" },
   { id: "masala-chai", name: "Masala Chai", setupCost: 12000, weeklyCost: 3500, ticketImpact: 0, demandImpact: 5, infrastructure: "basic" },
+  { id: "lemon-tea", name: "Lemon / Ginger Tea", setupCost: 10000, weeklyCost: 3000, ticketImpact: 5, demandImpact: 3, infrastructure: "basic" },
+  { id: "bun-maska", name: "Bun Maska", setupCost: 15000, weeklyCost: 4000, ticketImpact: 20, demandImpact: 6, infrastructure: "basic" },
+  { id: "butter-toast", name: "Butter / Jam Toast", setupCost: 18000, weeklyCost: 4500, ticketImpact: 25, demandImpact: 5, infrastructure: "basic" },
+  { id: "samosa", name: "Samosa", setupCost: 20000, weeklyCost: 5500, ticketImpact: 25, demandImpact: 7, infrastructure: "basic" },
+  { id: "vada-pav", name: "Vada Pav", setupCost: 25000, weeklyCost: 6500, ticketImpact: 30, demandImpact: 9, infrastructure: "basic" },
+  { id: "veg-sandwich", name: "Simple Veg Sandwich", setupCost: 35000, weeklyCost: 7000, ticketImpact: 40, demandImpact: 8, infrastructure: "basic" },
+  { id: "poha-upma", name: "Poha / Upma", setupCost: 30000, weeklyCost: 6000, ticketImpact: 30, demandImpact: 6, infrastructure: "basic" },
   { id: "espresso", name: "Espresso", setupCost: 75000, weeklyCost: 9000, ticketImpact: 45, demandImpact: 7, infrastructure: "beverage" },
-  { id: "cappuccino", name: "Cappuccino", setupCost: 120000, weeklyCost: 12000, ticketImpact: 85, demandImpact: 10, infrastructure: "beverage" },
-  { id: "sandwich", name: "Sandwich", setupCost: 90000, weeklyCost: 10000, ticketImpact: 70, demandImpact: 9, infrastructure: "kitchen" },
-  { id: "breakfast", name: "Breakfast", setupCost: 180000, weeklyCost: 18000, ticketImpact: 110, demandImpact: 13, infrastructure: "kitchen" },
+  { id: "cappuccino", name: "Cappuccino / Latte", setupCost: 120000, weeklyCost: 12000, ticketImpact: 85, demandImpact: 10, infrastructure: "beverage" },
+  { id: "cold-coffee", name: "Cold Coffee", setupCost: 60000, weeklyCost: 8000, ticketImpact: 65, demandImpact: 9, infrastructure: "beverage" },
+  { id: "milkshake", name: "Milkshakes", setupCost: 70000, weeklyCost: 9000, ticketImpact: 75, demandImpact: 8, infrastructure: "beverage" },
+  { id: "grilled-sandwich", name: "Grilled / Club Sandwich", setupCost: 90000, weeklyCost: 10000, ticketImpact: 90, demandImpact: 10, infrastructure: "kitchen" },
+  { id: "fries", name: "Fries / Loaded Fries", setupCost: 70000, weeklyCost: 8500, ticketImpact: 70, demandImpact: 8, infrastructure: "kitchen" },
+  { id: "pasta", name: "Pasta / Noodles", setupCost: 110000, weeklyCost: 11000, ticketImpact: 100, demandImpact: 9, infrastructure: "kitchen" },
+  { id: "rice-meal", name: "Rice & Curry Meal", setupCost: 120000, weeklyCost: 13000, ticketImpact: 120, demandImpact: 8, infrastructure: "kitchen" },
+  { id: "biryani", name: "Biryani", setupCost: 140000, weeklyCost: 15000, ticketImpact: 150, demandImpact: 10, infrastructure: "kitchen" },
+  { id: "paneer-main", name: "Paneer / Chicken Main", setupCost: 150000, weeklyCost: 16000, ticketImpact: 160, demandImpact: 9, infrastructure: "kitchen" },
+  { id: "dessert", name: "Desserts", setupCost: 80000, weeklyCost: 9000, ticketImpact: 80, demandImpact: 6, infrastructure: "kitchen" },
 ];
+
 export type GameEvent = { id: "bad-review" | "supplier-increase" | "staff-absence"; title: string; narrative: string; severity: 1 | 2 | 3; options: Array<{ id: string; title: string; description: string; cost: number }> };
 export type GameState = { version: 2; setupComplete: boolean; day: number; cash: number; revenue: number; profit: number; customers: number; reputation: number; priceIndex: number; marketing: number; staff: number; quality: number; inventory: number; location: Location; capital: number; format: BusinessFormat; menu: MenuItemId[]; setupCost: number; serviceCapacity: number; currentEvent: GameEvent | null; eventHistory: string[] };
 export type Decision = "raise-price" | "marketing" | "hire" | "quality" | "inventory";
@@ -20,20 +44,20 @@ export const LOCATION_OPTIONS: Array<{ id: Location; name: string; rentMonthly: 
   { id: "premium", name: "Premium district", rentMonthly: 175000, demand: 1.0, description: "Highest rent, but stronger premium pricing potential." },
 ];
 export const FORMAT_OPTIONS: Array<{ id: BusinessFormat; name: string; cost: number; staff: number; capacity: number; description: string }> = [
-  { id: "takeaway", name: "Takeaway kiosk", cost: 120000, staff: 55, capacity: 120, description: "Small footprint, takeaway only. Basic menu infrastructure." },
-  { id: "small-cafe", name: "Small café", cost: 250000, staff: 65, capacity: 200, description: "Seating plus basic and beverage infrastructure." },
-  { id: "full-cafe", name: "Full-service café", cost: 450000, staff: 72, capacity: 300, description: "Full seating and kitchen infrastructure." },
+  { id: "takeaway", name: "Takeaway kiosk", cost: 120000, staff: 55, capacity: 120, description: "Small footprint with a quick-service menu: tea, coffee, buns and simple snacks." },
+  { id: "small-cafe", name: "Small café", cost: 250000, staff: 65, capacity: 200, description: "Seating plus beverage equipment and a broader café menu." },
+  { id: "full-cafe", name: "Full-service restaurant", cost: 450000, staff: 72, capacity: 300, description: "Full seating and kitchen infrastructure for a broad food menu." },
 ];
 export const INITIAL_STATE: GameState = { version: 2, setupComplete: false, day: 1, cash: 0, revenue: 0, profit: 0, customers: 0, reputation: 50, priceIndex: 100, marketing: 25, staff: 0, quality: 65, inventory: 100, location: "high-footfall", capital: 0, format: "small-cafe", menu: [], setupCost: 0, serviceCapacity: 0, currentEvent: null, eventHistory: [] };
-export function upgradeLegacyState(raw: Partial<GameState>): GameState { if (raw.version === 2) return raw as GameState; return { ...INITIAL_STATE, ...raw, version: 2, setupComplete: true, capital: Number(raw.cash ?? 500000), format: "small-cafe", menu: ["filter-coffee", "masala-chai"], setupCost: 0, serviceCapacity: 200, currentEvent: null, eventHistory: [] }; }
+export function upgradeLegacyState(raw: Partial<GameState>): GameState { if (raw.version === 2) return raw as GameState; return { ...INITIAL_STATE, ...raw, version: 2, setupComplete: true, capital: Number(raw.cash ?? 500000), format: "small-cafe", menu: ["filter-coffee", "masala-chai", "bun-maska", "vada-pav"], setupCost: 0, serviceCapacity: 200, currentEvent: null, eventHistory: [] }; }
 export function formatINR(value: number): string { return new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(value); }
 export function calculateSetup(capital: number, location: Location, format: BusinessFormat, menu: MenuItemId[]) {
   const formatOption = FORMAT_OPTIONS.find(x => x.id === format); const locationOption = LOCATION_OPTIONS.find(x => x.id === location);
   if (!formatOption || !locationOption) throw new Error("Invalid business configuration.");
   const selected = menu.map(id => MENU_ITEMS.find(x => x.id === id)).filter(Boolean) as MenuItem[];
   if (selected.length !== menu.length) throw new Error("Invalid menu item.");
-  if (selected.some(item => item.infrastructure === "beverage") && format === "takeaway") throw new Error("Espresso-based drinks require a small café or full-service café.");
-  if (selected.some(item => item.infrastructure === "kitchen") && format !== "full-cafe") throw new Error("Kitchen menu items require a full-service café.");
+  if (selected.some(item => item.infrastructure === "beverage") && format === "takeaway") throw new Error("Espresso-based and specialty drinks require a small café or full-service restaurant.");
+  if (selected.some(item => item.infrastructure === "kitchen") && format !== "full-cafe") throw new Error("Kitchen menu items require a full-service restaurant.");
   const menuCost = selected.reduce((sum, item) => sum + item.setupCost, 0);
   const licensing = 50000; const openingInventory = Math.max(30000, menu.length * 15000); const setupCost = formatOption.cost + menuCost + licensing + openingInventory;
   return { setupCost, reserve: capital - setupCost, staff: formatOption.staff, serviceCapacity: formatOption.capacity, rentMonthly: locationOption.rentMonthly };
