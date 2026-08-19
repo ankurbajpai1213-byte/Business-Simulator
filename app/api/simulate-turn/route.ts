@@ -2,9 +2,11 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
 import { applyDecision, advanceDay, applyEvent, generateEvent, isDecisionAvailable, type Decision, type GameEventId, type GameState } from "@/lib/simulation";
+import { applyDelayedEffect, createDelayedEffects, shouldShowMilestone, type DelayedEffect } from "@/lib/simulation-engine-v2";
 
 const SESSION_COOKIE = "bs_session";
 const decisions = new Set<Decision>(["raise-price", "lower-price", "marketing", "hire", "quality", "inventory", "no-action"]);
+type V2State = GameState & { pendingDelayedEffects?: DelayedEffect[] };
 
 export async function POST(request: Request) {
   try {
@@ -16,13 +18,20 @@ export async function POST(request: Request) {
     if (loadError || !session) return NextResponse.json({ error: "Game session not found." }, { status: 404 });
     if (session.status !== "active") return NextResponse.json({ error: "This game is already finished." }, { status: 409 });
 
-    const originalState = session.state as GameState;
+    const originalState = session.state as V2State;
     const expectedDay = originalState.day;
     const turnCashBefore = originalState.cash;
     let currentState = originalState;
     let resolvedEventTitle: string | null = null;
     let resolvedEventId: GameEventId | null = null;
     let resolvedEventOption: string | null = null;
+
+    // Apply delayed consequences that became due before today's new decision.
+    const dueEffects = (currentState.pendingDelayedEffects ?? []).filter((effect) => effect.applyOnDay <= currentState.day);
+    if (dueEffects.length) {
+      for (const effect of dueEffects) currentState = applyDelayedEffect(currentState, effect) as V2State;
+      currentState.pendingDelayedEffects = (currentState.pendingDelayedEffects ?? []).filter((effect) => effect.applyOnDay > currentState.day);
+    }
 
     if (currentState.currentEvent) {
       if (!body.eventOption) return NextResponse.json({ error: "Resolve the current business event first." }, { status: 409 });
@@ -32,16 +41,34 @@ export async function POST(request: Request) {
       resolvedEventTitle = currentState.currentEvent.title;
       resolvedEventId = currentState.currentEvent.id;
       resolvedEventOption = body.eventOption;
-      currentState = applyEvent(currentState, body.eventOption);
+      currentState = applyEvent(currentState, body.eventOption) as V2State;
     }
 
     if (!body.decision || !decisions.has(body.decision)) return NextResponse.json({ error: "Invalid simulation request." }, { status: 400 });
     if (!isDecisionAvailable(currentState, body.decision)) return NextResponse.json({ error: "That decision is not available yet, is already at its maximum, or there is not enough cash for it." }, { status: 409 });
 
-    currentState = applyDecision(currentState, body.decision);
+    const stateBeforeDecision = currentState;
+    currentState = applyDecision(currentState, body.decision) as V2State;
     const turnSpend = Math.max(0, turnCashBefore - currentState.cash);
     const rainToday = resolvedEventId === "rain";
-    const nextState = advanceDay(currentState, body.decision, turnSpend, rainToday, resolvedEventId, resolvedEventOption);
+    const nextState = advanceDay(currentState, body.decision, turnSpend, rainToday, resolvedEventId, resolvedEventOption) as V2State;
+
+    // Queue consequences so the decision can matter after the day it was made.
+    const newEffects = createDelayedEffects(stateBeforeDecision, body.decision, expectedDay);
+    nextState.pendingDelayedEffects = [
+      ...(nextState.pendingDelayedEffects ?? []),
+      ...newEffects,
+    ];
+
+    const milestoneUpdate = shouldShowMilestone(nextState.day, nextState.cumulativeProfit, nextState.milestones);
+    nextState.milestones = [
+      ...new Set([
+        ...nextState.milestones,
+        ...milestoneUpdate.timeMilestones,
+        ...(milestoneUpdate.profitMilestone ? [milestoneUpdate.profitMilestone] : []),
+      ]),
+    ];
+
     const event = generateEvent(nextState);
     nextState.currentEvent = event;
 
@@ -89,6 +116,8 @@ export async function POST(request: Request) {
         cumulativeRevenue: nextState.cumulativeRevenue,
         cumulativeProfit: nextState.cumulativeProfit,
         milestones: nextState.milestones,
+        delayedEffectsQueued: newEffects,
+        delayedEffectsApplied: dueEffects,
         dayMessage: nextState.lastDayMessage,
         status,
       },
