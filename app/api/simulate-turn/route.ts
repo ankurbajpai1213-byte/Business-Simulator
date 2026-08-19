@@ -4,7 +4,7 @@ import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
 import { applyDecision, advanceDay, applyEvent, generateEvent, isDecisionAvailable, type Decision, type GameState } from "@/lib/simulation";
 
 const SESSION_COOKIE = "bs_session";
-const decisions = new Set<Decision>(["raise-price", "marketing", "hire", "quality", "inventory"]);
+const decisions = new Set<Decision>(["raise-price", "marketing", "hire", "quality", "inventory", "no-action"]);
 
 export async function POST(request: Request) {
   try {
