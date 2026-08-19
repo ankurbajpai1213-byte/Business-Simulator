@@ -10,6 +10,7 @@ const DECISIONS: Array<[Decision, string, string]> = [
   ["hire", "Hire staff", "Spend ₹18,000 to improve service capacity."],
   ["quality", "Improve quality", "Spend ₹12,000 to improve the product and experience."],
   ["inventory", "Restock", "Spend ₹8,000 to replenish stock. Too much stock can become waste."],
+  ["no-action", "Do nothing", "Spend ₹0. Let the business run and see what happens."],
 ];
 const decisionName = (id: Decision) => DECISIONS.find(x => x[0] === id)?.[1] ?? "Business decision";
 
