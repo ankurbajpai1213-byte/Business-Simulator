@@ -24,7 +24,7 @@ export async function GET() {
       if (error) throw error;
       if (data) {
         const state = upgradeLegacyState(data.state as Partial<GameState>);
-        if ((data.state as Partial<GameState>).version !== 3) await supabase.from("game_sessions").update({ state }).eq("id", data.id);
+        if ((data.state as Partial<GameState>).version !== 4 || typeof (data.state as Partial<GameState>).wastageToday !== "number") await supabase.from("game_sessions").update({ state }).eq("id", data.id);
         if (playerId && !data.user_id) await supabase.from("game_sessions").update({ user_id: playerId }).eq("id", data.id);
         return NextResponse.json({ state, sessionId: data.id, playerId: playerId ?? data.user_id ?? null });
       }
