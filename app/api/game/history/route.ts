@@ -14,6 +14,7 @@ export async function GET() {
       .from("game_events")
       .select("id, day, event_type, payload, created_at")
       .eq("session_id", sessionId)
+      .neq("event_type", "business_setup")
       .order("day", { ascending: false });
 
     if (error) throw error;
