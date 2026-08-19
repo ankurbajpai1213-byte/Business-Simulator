@@ -1,10 +1,10 @@
-# Business Simulator — Engine Logic v1
+# Business Simulator — Engine Logic v4
 
 ## 1. Purpose
 
 The simulator models a small Indian food business over time. It is designed to teach trade-offs rather than reproduce a full accounting system.
 
-The engine is deterministic for the same day/state except for small controlled market variation. Player decisions are the main driver of outcomes.
+The engine is deterministic for the same day/state except for controlled market variation. Player decisions are the main driver of outcomes.
 
 ## 2. Starting a business
 
@@ -20,6 +20,8 @@ Setup spending is:
 **Format setup + menu setup + licensing allowance + opening inventory**
 
 The remainder becomes working cash. The player cannot spend more than the selected starting capital.
+
+Opening inventory starts at 75/100 rather than full stock. This gives the player room to decide when replenishment is actually needed.
 
 ## 3. Business state
 
@@ -38,7 +40,8 @@ The engine remembers:
 - Staff level
 - Service capacity
 - Product quality
-- Inventory
+- Inventory level
+- Today's inventory wastage
 - Supplier cost multiplier
 - Recent price behaviour
 - Profit/loss streaks
@@ -56,14 +59,16 @@ Each playable day follows this sequence:
 2. Player makes one strategic decision.
 3. Any unresolved business event is resolved.
 4. The engine calculates customer demand.
-5. Customers are capped by service capacity.
-6. Revenue is calculated from customers and average ticket.
-7. Operating costs are calculated.
-8. Daily profit/loss is calculated.
-9. Cash, inventory, reputation and marketing are updated.
-10. Milestones are checked.
-11. A contextual day-end message is generated.
-12. The engine may create the next business event.
+5. Demand is affected by price, reputation, quality, marketing, menu, location, service and stock availability.
+6. Customers are capped by service capacity.
+7. Revenue is calculated from customers and average ticket.
+8. Inventory consumption and wastage are calculated.
+9. Operating costs are calculated.
+10. Daily profit/loss is calculated.
+11. Cash, inventory, reputation and marketing are updated.
+12. Milestones are checked.
+13. A contextual day-end message is generated.
+14. The engine may create the next business event.
 
 ## 5. Customer demand
 
@@ -79,6 +84,10 @@ Demand is influenced by:
 - Inventory availability
 - Temporary market conditions
 
+The demand calculation has been deliberately moved away from the previous capacity-heavy model. A healthy business should normally operate below maximum service capacity, while strong demand or poor service choices can push it toward the ceiling.
+
+Reputation and repeated pricing behaviour now have enough weight that customer counts should not remain identical for many consecutive days when the business is deteriorating.
+
 No single variable should guarantee success.
 
 ## 6. Pricing
@@ -92,7 +101,7 @@ Price has two effects:
 - Higher price increases the average ticket.
 - Higher price reduces customer demand.
 
-Repeated increases have an additional penalty. The second and third consecutive increases are increasingly damaging, and three or more consecutive increases also reduce reputation.
+Repeated increases have an additional penalty. Consecutive increases progressively reduce demand and can reduce reputation. A price increase can therefore improve a good day's margin while becoming harmful if repeated without regard to customer response.
 
 Premium locations tolerate price increases somewhat better than residential locations.
 
@@ -122,17 +131,32 @@ Higher quality also supports reputation over time.
 
 Quality is deliberately a slower-burn investment than marketing.
 
-## 10. Inventory
+## 10. Inventory and wastage
 
-Inventory falls as customers are served.
+Inventory is a 0–100 operating-health indicator.
 
-Low inventory reduces demand because some sales cannot be fulfilled.
+Each day, inventory is consumed based on customers served. The current model uses roughly one inventory unit for every nine customers, with a minimum daily consumption floor.
 
-Very high inventory creates a small wastage cost.
+Restocking costs ₹8,000 and adds 30 inventory points, capped at 100.
 
-This creates the intended trade-off:
+This means restocking is useful when inventory is low, but repeatedly restocking can create excess stock.
+
+### Inventory bands
+
+- **0–19:** critical — high stockout risk.
+- **20–44:** tight — demand begins to suffer.
+- **45–82:** healthy operating range.
+- **83–100:** excess — further restocking can create waste.
+
+If inventory is already high, the engine charges wastage. Wastage increases with the amount of stock above the healthy threshold and is recorded as a real operating cost.
+
+If stock falls below what is needed for the day's customers, the business loses some effective demand and receives an additional stockout cost/reputation penalty.
+
+The intended lesson is:
 
 **Too little inventory → lost sales. Too much inventory → tied-up cash and wastage.**
+
+The player can see stock level, estimated days of stock cover, and today's wastage on the main screen. Past Days also records inventory and wastage so the player can connect the decision to the result.
 
 ## 11. Financial model
 
@@ -151,6 +175,7 @@ Operating costs include:
 - Menu operating costs
 - Capacity/service stress
 - Inventory wastage
+- Stockout cost where applicable
 
 Profit:
 
@@ -173,6 +198,7 @@ It responds to:
 - Service pressure
 - Repeated price increases
 - Negative business events
+- Stock problems
 - Some positive event outcomes
 
 A business can therefore make money while damaging its reputation, or have a bad financial day while preserving customer goodwill.
@@ -224,6 +250,7 @@ Examples:
 - “Careful. Costs are catching up. A rough day is information, not a verdict.”
 - “Your customers noticed. 💸 The extra margin came with a cost.”
 - “Now we're cooking. 🔥 Three good days in a row.”
+- “You're carrying too much stock. 📦 Some of it went to waste today.”
 - “Another day in the books. Sometimes boring is profitable.”
 
 The message is reinforcement, not a score saying whether the player is correct.
@@ -262,6 +289,8 @@ The engine should continuously be checked for these failure modes:
 - Price increases produce only positive outcomes.
 - Marketing produces permanent free growth.
 - Inventory can be ignored without consequence.
+- Restocking every day is always better than waiting for stock to fall.
+- Customer counts remain fixed despite meaningful changes in price, reputation or stock.
 
 The target is not perfect real-world accuracy. The target is **plausible business economics + understandable trade-offs + meaningful decisions + quick gameplay**.
 
@@ -287,6 +316,7 @@ Useful data includes:
 - Reputation
 - Price index
 - Inventory
+- Wastage
 - Staff
 - Quality
 - Milestones
