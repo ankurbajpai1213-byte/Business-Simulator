@@ -1,4 +1,4 @@
-import type { GameEvent, GameEventId, GameState, Decision } from "./simulation";
+import type { GameEventId, GameState, Decision } from "./simulation";
 
 /**
  * V2 scenario layer. Kept separate from the existing turn calculator so it can
@@ -27,9 +27,9 @@ export type DelayedEffect = {
 const EVENT_COOLDOWN = 3;
 const RAIN_COOLDOWN = 7;
 
-function deterministicScore(seed: number, day: number, eventId: string) {
+function deterministicScore(seed: number, day: number, eventKey: string) {
   let value = (seed ^ Math.imul(day + 17, 2654435761)) >>> 0;
-  for (let i = 0; i < eventId.length; i += 1) value = Math.imul(value ^ eventId.charCodeAt(i), 16777619) >>> 0;
+  for (let i = 0; i < eventKey.length; i += 1) value = Math.imul(value ^ eventKey.charCodeAt(i), 16777619) >>> 0;
   return value / 4294967296;
 }
 
@@ -76,21 +76,11 @@ export function selectScenario(ctx: ScenarioContext, candidates: GameEventId[]):
 
 export function createDelayedEffects(state: GameState, decision: Decision, day: number): DelayedEffect[] {
   const effects: DelayedEffect[] = [];
-  if (decision === "hire") {
-    effects.push({ id: `hire-${day}`, sourceDay: day, applyOnDay: day + 7, label: "Additional payroll begins to weigh on margins", cashDelta: -18000, reputationDelta: 2 });
-  }
-  if (decision === "marketing") {
-    effects.push({ id: `marketing-${day}`, sourceDay: day, applyOnDay: day + 3, label: "Marketing campaign lifts awareness", reputationDelta: 2, cashDelta: 5000 });
-  }
-  if (decision === "quality") {
-    effects.push({ id: `quality-${day}`, sourceDay: day, applyOnDay: day + 5, label: "Quality improvements improve repeat demand", reputationDelta: 3, qualityDelta: 2 });
-  }
-  if (decision === "inventory" && state.inventory > 80) {
-    effects.push({ id: `inventory-${day}`, sourceDay: day, applyOnDay: day + 4, label: "Extra stock creates a little wastage risk", inventoryDelta: -8, cashDelta: -3000 });
-  }
-  if (decision === "raise-price" && state.priceIndex >= 118) {
-    effects.push({ id: `price-${day}`, sourceDay: day, applyOnDay: day + 5, label: "Higher prices start testing customer loyalty", reputationDelta: -2 });
-  }
+  if (decision === "hire") effects.push({ id: `hire-${day}`, sourceDay: day, applyOnDay: day + 7, label: "Additional payroll begins to weigh on margins", cashDelta: -18000, reputationDelta: 2 });
+  if (decision === "marketing") effects.push({ id: `marketing-${day}`, sourceDay: day, applyOnDay: day + 3, label: "Marketing campaign lifts awareness", reputationDelta: 2, cashDelta: 5000 });
+  if (decision === "quality") effects.push({ id: `quality-${day}`, sourceDay: day, applyOnDay: day + 5, label: "Quality improvements improve repeat demand", reputationDelta: 3, qualityDelta: 2 });
+  if (decision === "inventory" && state.inventory > 80) effects.push({ id: `inventory-${day}`, sourceDay: day, applyOnDay: day + 4, label: "Extra stock creates a little wastage risk", inventoryDelta: -8, cashDelta: -3000 });
+  if (decision === "raise-price" && state.priceIndex >= 118) effects.push({ id: `price-${day}`, sourceDay: day, applyOnDay: day + 5, label: "Higher prices start testing customer loyalty", reputationDelta: -2 });
   return effects;
 }
 
@@ -109,7 +99,7 @@ export function applyDelayedEffect(state: GameState, effect: DelayedEffect): Gam
 
 export function shouldShowMilestone(day: number, cumulativeProfit: number, milestones: string[]) {
   const targets: Array<[number, string]> = [[7, "week-one"], [30, "month-one"], [90, "quarter-three"]];
-  const reached = targets.filter(([target]) => day >= target && !milestones.includes(milestones.find((m) => m === targets.find(([t]) => t === target)?.[1]) ?? ""));
+  const timeMilestones = targets.filter(([target, id]) => day >= target && !milestones.includes(id)).map(([, id]) => id);
   const profitMilestone = cumulativeProfit >= 500000 && !milestones.includes("profit-500k") ? "profit-500k" : null;
-  return { timeMilestones: reached.map(([, id]) => id).filter((id) => !milestones.includes(id)), profitMilestone };
+  return { timeMilestones, profitMilestone };
 }
