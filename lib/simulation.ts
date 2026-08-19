@@ -47,175 +47,48 @@ export const INITIAL_STATE: GameState = { version: 4, setupComplete: false, day:
 
 export function upgradeLegacyState(raw: Partial<GameState>): GameState {
   if (raw.version === 4 && typeof raw.wastageToday === "number" && typeof raw.seed === "number") return raw as GameState;
-  return {
-    ...INITIAL_STATE,
-    ...raw,
-    version: 4,
-    setupComplete: true,
-    capital: Number(raw.capital ?? raw.cash ?? 500000),
-    format: raw.format ?? "small-cafe",
-    menu: raw.menu?.length ? raw.menu : ["filter-coffee", "instant-coffee", "masala-chai", "bun-maska", "vada-pav", "veg-sandwich"],
-    setupCost: Number(raw.setupCost ?? 0),
-    serviceCapacity: Number(raw.serviceCapacity ?? 200),
-    currentEvent: raw.currentEvent ?? null,
-    eventHistory: raw.eventHistory ?? [],
-    dayHistory: (raw.dayHistory ?? []).map(record => ({ ...record, inventory: Number((record as Partial<DayRecord>).inventory ?? 0), wastage: Number((record as Partial<DayRecord>).wastage ?? 0) })),
-    totalCustomers: Number(raw.totalCustomers ?? raw.customers ?? 0),
-    cumulativeRevenue: Number(raw.cumulativeRevenue ?? raw.revenue ?? 0),
-    cumulativeProfit: Number(raw.cumulativeProfit ?? raw.profit ?? 0),
-    inventory: Math.max(0, Math.min(100, Number(raw.inventory ?? 75))),
-    wastageToday: Number(raw.wastageToday ?? 0),
-    consecutivePriceRaises: Number(raw.consecutivePriceRaises ?? 0),
-    priceChangesLast7: Number(raw.priceChangesLast7 ?? 0),
-    profitableDays: Number(raw.profitableDays ?? 0),
-    lossDays: Number(raw.lossDays ?? 0),
-    profitStreak: Number(raw.profitStreak ?? 0),
-    lossStreak: Number(raw.lossStreak ?? 0),
-    supplierCostMultiplier: Number(raw.supplierCostMultiplier ?? 1),
-    lastEventDay: Number(raw.lastEventDay ?? 0),
-    milestones: raw.milestones ?? [],
-    lastDayMessage: raw.lastDayMessage ?? "",
-    seed: Number(raw.seed ?? Math.floor(Math.random() * 2147483647)),
-  };
+  return { ...INITIAL_STATE, ...raw, version: 4, setupComplete: true, capital: Number(raw.capital ?? raw.cash ?? 500000), format: raw.format ?? "small-cafe", menu: raw.menu?.length ? raw.menu : ["filter-coffee", "instant-coffee", "masala-chai", "bun-maska", "vada-pav", "veg-sandwich"], setupCost: Number(raw.setupCost ?? 0), serviceCapacity: Number(raw.serviceCapacity ?? 200), currentEvent: raw.currentEvent ?? null, eventHistory: raw.eventHistory ?? [], dayHistory: (raw.dayHistory ?? []).map(record => ({ ...record, inventory: Number((record as Partial<DayRecord>).inventory ?? 0), wastage: Number((record as Partial<DayRecord>).wastage ?? 0) })), totalCustomers: Number(raw.totalCustomers ?? raw.customers ?? 0), cumulativeRevenue: Number(raw.cumulativeRevenue ?? raw.revenue ?? 0), cumulativeProfit: Number(raw.cumulativeProfit ?? raw.profit ?? 0), inventory: Math.max(0, Math.min(100, Number(raw.inventory ?? 75))), wastageToday: Number(raw.wastageToday ?? 0), consecutivePriceRaises: Number(raw.consecutivePriceRaises ?? 0), priceChangesLast7: Number(raw.priceChangesLast7 ?? 0), profitableDays: Number(raw.profitableDays ?? 0), lossDays: Number(raw.lossDays ?? 0), profitStreak: Number(raw.profitStreak ?? 0), lossStreak: Number(raw.lossStreak ?? 0), supplierCostMultiplier: Number(raw.supplierCostMultiplier ?? 1), lastEventDay: Number(raw.lastEventDay ?? 0), milestones: raw.milestones ?? [], lastDayMessage: raw.lastDayMessage ?? "", seed: Number(raw.seed ?? Math.floor(Math.random() * 2147483647)) };
 }
 
 export function formatINR(value: number): string { return new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(value); }
-
 export function calculateSetup(capital: number, location: Location, format: BusinessFormat, menu: MenuItemId[]) {
-  const formatOption = FORMAT_OPTIONS.find(x => x.id === format); const locationOption = LOCATION_OPTIONS.find(x => x.id === location);
-  if (!formatOption || !locationOption) throw new Error("Invalid business configuration.");
-  const selected = menu.map(id => MENU_ITEMS.find(x => x.id === id)).filter(Boolean) as MenuItem[];
-  if (selected.length !== menu.length) throw new Error("Invalid menu item.");
-  if (selected.some(item => item.infrastructure === "beverage") && format === "takeaway") throw new Error("Specialty drinks require a small café or full-service restaurant.");
-  if (selected.some(item => item.infrastructure === "kitchen") && format !== "full-cafe") throw new Error("Kitchen menu items require a full-service restaurant.");
-  const menuCost = selected.reduce((sum, item) => sum + item.setupCost, 0); const licensing = 50000; const openingInventory = Math.max(30000, menu.length * 15000);
-  const setupCost = formatOption.cost + menuCost + licensing + openingInventory;
+  const formatOption = FORMAT_OPTIONS.find(x => x.id === format); const locationOption = LOCATION_OPTIONS.find(x => x.id === location); if (!formatOption || !locationOption) throw new Error("Invalid business configuration.");
+  const selected = menu.map(id => MENU_ITEMS.find(x => x.id === id)).filter(Boolean) as MenuItem[]; if (selected.length !== menu.length) throw new Error("Invalid menu item.");
+  if (selected.some(item => item.infrastructure === "beverage") && format === "takeaway") throw new Error("Specialty drinks require a small café or full-service restaurant."); if (selected.some(item => item.infrastructure === "kitchen") && format !== "full-cafe") throw new Error("Kitchen menu items require a full-service restaurant.");
+  const menuCost = selected.reduce((sum, item) => sum + item.setupCost, 0); const licensing = 50000; const openingInventory = Math.max(30000, menu.length * 15000); const setupCost = formatOption.cost + menuCost + licensing + openingInventory;
   return { setupCost, reserve: capital - setupCost, staff: formatOption.staff, serviceCapacity: formatOption.capacity, rentMonthly: locationOption.rentMonthly };
 }
-
 export function createConfiguredState(input: { capital: number; location: Location; format: BusinessFormat; menu: MenuItemId[] }): GameState {
-  if (!CAPITAL_OPTIONS.includes(input.capital)) throw new Error("Invalid capital."); if (!input.menu.length) throw new Error("Choose at least one menu item.");
-  const result = calculateSetup(input.capital, input.location, input.format, input.menu); if (result.reserve <= 0) throw new Error("Startup configuration exceeds available capital.");
+  if (!CAPITAL_OPTIONS.includes(input.capital)) throw new Error("Invalid capital."); if (!input.menu.length) throw new Error("Choose at least one menu item."); const result = calculateSetup(input.capital, input.location, input.format, input.menu); if (result.reserve <= 0) throw new Error("Startup configuration exceeds available capital.");
   return { ...INITIAL_STATE, setupComplete: true, capital: input.capital, cash: result.reserve, location: input.location, format: input.format, menu: input.menu, setupCost: result.setupCost, staff: result.staff, serviceCapacity: result.serviceCapacity, inventory: 75, milestones: ["open-business"], seed: Math.floor(Math.random() * 2147483647) };
 }
-
 function menuStats(menu: MenuItem[]) { return menu.reduce((acc, item) => ({ ticket: acc.ticket + item.ticketImpact, demand: acc.demand + item.demandImpact, weeklyCost: acc.weeklyCost + item.weeklyCost }), { ticket: 0, demand: 0, weeklyCost: 0 }); }
-export function getAvailableDecisions(state: GameState): Decision[] {
-  if (state.day === 1) return ["marketing", "hire", "inventory", "no-action"];
-  if (state.day === 2) return ["marketing", "hire", "quality", "inventory", "no-action"];
-  return ["raise-price", "lower-price", "marketing", "hire", "quality", "inventory", "no-action"];
-}
+export function getAvailableDecisions(state: GameState): Decision[] { if (state.day === 1) return ["marketing", "hire", "inventory", "no-action"]; if (state.day === 2) return ["marketing", "hire", "quality", "inventory", "no-action"]; return ["raise-price", "lower-price", "marketing", "hire", "quality", "inventory", "no-action"]; }
 export function getDecisionCost(decision: Decision): number { return { "raise-price": 0, "lower-price": 0, marketing: 10000, hire: 18000, quality: 12000, inventory: 8000, "no-action": 0 }[decision]; }
 export function isDecisionAvailable(state: GameState, decision: Decision): boolean {
   if (!getAvailableDecisions(state).includes(decision)) return false;
+  if (decision === "raise-price" && state.priceIndex >= 140) return false;
+  if (decision === "lower-price" && state.priceIndex <= 100) return false;
   return decision === "no-action" || decision === "raise-price" || decision === "lower-price" || state.cash >= getDecisionCost(decision);
 }
 export function applyDecision(state: GameState, decision: Decision): GameState {
   if (!isDecisionAvailable(state, decision)) return state; const next = { ...state };
-  switch (decision) {
-    case "raise-price": if (next.priceIndex < 140) { next.priceIndex = Math.min(140, next.priceIndex + 6); next.consecutivePriceRaises += 1; next.priceChangesLast7 += 1; } break;
-    case "lower-price": if (next.priceIndex > 100) { next.priceIndex = Math.max(100, next.priceIndex - 6); next.consecutivePriceRaises = 0; next.priceChangesLast7 += 1; } break;
-    case "marketing": next.cash -= 10000; next.marketing = Math.min(100, next.marketing + 14); break;
-    case "hire": next.cash -= 18000; next.staff = Math.min(100, next.staff + 10); next.serviceCapacity = Math.min(next.serviceCapacity + 15, 600); break;
-    case "quality": next.cash -= 12000; next.quality = Math.min(100, next.quality + 7); break;
-    case "inventory": next.cash -= 8000; next.inventory = Math.min(100, next.inventory + 30); break;
-    case "no-action": break;
-  }
+  switch (decision) { case "raise-price": next.priceIndex = Math.min(140, next.priceIndex + 6); next.consecutivePriceRaises += 1; next.priceChangesLast7 += 1; break; case "lower-price": next.priceIndex = Math.max(100, next.priceIndex - 6); next.consecutivePriceRaises = 0; next.priceChangesLast7 += 1; break; case "marketing": next.cash -= 10000; next.marketing = Math.min(100, next.marketing + 14); break; case "hire": next.cash -= 18000; next.staff = Math.min(100, next.staff + 10); next.serviceCapacity = Math.min(next.serviceCapacity + 15, 600); break; case "quality": next.cash -= 12000; next.quality = Math.min(100, next.quality + 7); break; case "inventory": next.cash -= 8000; next.inventory = Math.min(100, next.inventory + 30); break; case "no-action": break; }
   if (decision !== "raise-price") next.consecutivePriceRaises = 0; return next;
 }
-
 function seededNoise(seed: number, day: number): number { const x = Math.sin((seed + day * 12.9898) * 0.000001) * 43758.5453; return 0.85 + (x - Math.floor(x)) * 0.30; }
-function priceDemandFactor(state: GameState): number {
-  const tolerance = state.location === "premium" ? 0.10 : state.location === "high-footfall" ? 0.03 : 0;
-  const baseIncrease = Math.max(0, state.priceIndex - 100) / 100;
-  let elasticity = 1 - Math.min(0.52, baseIncrease * (1.20 - tolerance));
-  if (state.consecutivePriceRaises >= 2) elasticity -= Math.min(0.20, (state.consecutivePriceRaises - 1) * 0.065);
-  if (state.consecutivePriceRaises >= 4) elasticity -= 0.07;
-  return Math.max(0.28, elasticity);
-}
+function priceDemandFactor(state: GameState): number { const tolerance = state.location === "premium" ? 0.10 : state.location === "high-footfall" ? 0.03 : 0; const baseIncrease = Math.max(0, state.priceIndex - 100) / 100; let elasticity = 1 - Math.min(0.52, baseIncrease * (1.20 - tolerance)); if (state.consecutivePriceRaises >= 2) elasticity -= Math.min(0.20, (state.consecutivePriceRaises - 1) * 0.065); if (state.consecutivePriceRaises >= 4) elasticity -= 0.07; return Math.max(0.28, elasticity); }
 function serviceFactor(state: GameState): number { const targetStaff = state.format === "takeaway" ? 55 : state.format === "small-cafe" ? 65 : 72; return Math.min(1.08, 0.84 + state.staff / Math.max(1, targetStaff) * 0.16); }
-function addMilestones(state: GameState, previousProfit: number): string[] {
-  const unlocked = new Set(state.milestones); const add = (id: string, condition: boolean) => { if (condition) unlocked.add(id); };
-  add("first-sale", state.cumulativeRevenue > 0); add("first-customer", state.totalCustomers >= 1); add("100-customers", state.totalCustomers >= 100); add("500-customers", state.totalCustomers >= 500); add("1000-customers", state.totalCustomers >= 1000);
-  add("revenue-1l", state.cumulativeRevenue >= 100000); add("revenue-5l", state.cumulativeRevenue >= 500000); add("revenue-10l", state.cumulativeRevenue >= 1000000); add("first-profit", state.profitableDays >= 1); add("profit-streak-3", state.profitStreak >= 3); add("profit-streak-5", state.profitStreak >= 5); add("crisis-survived", state.eventHistory.length >= 1 && state.cash > 0); add("bounce-back", previousProfit < 0 && state.profit > 0); add("reputation-60", state.reputation >= 60); add("reputation-80", state.reputation >= 80); add("day-5", state.day > 5); add("day-10", state.day > 10); add("day-30", state.day > 30);
-  return [...unlocked];
-}
-function dayMessage(state: GameState, decision: Decision, previous: GameState): string {
-  const profitDelta = state.profit - previous.profit;
-  if (state.wastageToday > 2000) return "You're carrying too much stock. 📦 Some of it went to waste today — cash can't earn anything while it's sitting on the shelf.";
-  if (state.inventory < 20) return "Careful — the shelves are getting bare. One more busy day could mean lost sales.";
-  if (state.profitStreak >= 3) return "Now we're cooking. 🔥 Three good days in a row. Enjoy the win — tomorrow still has a vote.";
-  if (state.profit < 0 && state.lossStreak >= 2) return "Oof. The business is feeling it. Take a breath — one smart move can change the direction.";
-  if (decision === "raise-price" && state.consecutivePriceRaises >= 3) return "Your customers noticed. 💸 The extra margin came with a cost. Maybe give the prices a little breathing room.";
-  if (decision === "lower-price" && state.profit > previous.profit) return "A little breathing room helped. Lower prices can recover demand when you've pushed too far.";
-  if (decision === "raise-price" && state.profit > previous.profit) return "That price move paid off. ☕ Just remember: what works today may not work three days in a row.";
-  if (decision === "no-action" && state.profit > 0) return "A steady day. 📈 Sometimes the smartest move is not to fix what isn't broken.";
-  if (decision === "no-action" && state.profit < 0) return "You held steady today. That's useful information — now watch what the business is telling you.";
-  if (state.profit > 0 && profitDelta > 0) return "Today paid off. 📈 Your business moved in the right direction. Enjoy this one.";
-  if (state.profit > 0) return "A solid day. Nothing flashy — just a business doing its job.";
-  if (state.profit < 0 && previous.profit >= 0) return "Careful. Costs are catching up. A rough day is information, not a verdict.";
-  if (state.reputation > previous.reputation) return "People seem to like what you're doing. ⭐ Keep that feeling going.";
-  if (state.reputation < previous.reputation) return "The customers have opinions. 😬 Watch what changed today before making the next move.";
-  return "Another day in the books. Sometimes boring is profitable. Tomorrow, we try again.";
-}
-
+function addMilestones(state: GameState, previousProfit: number): string[] { const unlocked = new Set(state.milestones); const add = (id: string, condition: boolean) => { if (condition) unlocked.add(id); }; add("first-sale", state.cumulativeRevenue > 0); add("first-customer", state.totalCustomers >= 1); add("100-customers", state.totalCustomers >= 100); add("500-customers", state.totalCustomers >= 500); add("1000-customers", state.totalCustomers >= 1000); add("revenue-1l", state.cumulativeRevenue >= 100000); add("revenue-5l", state.cumulativeRevenue >= 500000); add("revenue-10l", state.cumulativeRevenue >= 1000000); add("first-profit", state.profitableDays >= 1); add("profit-streak-3", state.profitStreak >= 3); add("profit-streak-5", state.profitStreak >= 5); add("crisis-survived", state.eventHistory.length >= 1 && state.cash > 0); add("bounce-back", previousProfit < 0 && state.profit > 0); add("reputation-60", state.reputation >= 60); add("reputation-80", state.reputation >= 80); add("day-5", state.day > 5); add("day-10", state.day > 10); add("day-30", state.day > 30); return [...unlocked]; }
+function dayMessage(state: GameState, decision: Decision, previous: GameState): string { const profitDelta = state.profit - previous.profit; if (state.wastageToday > 2000) return "You're carrying too much stock. 📦 Some of it went to waste today — cash can't earn anything while it's sitting on the shelf."; if (state.inventory < 20) return "Careful — the shelves are getting bare. One more busy day could mean lost sales."; if (state.profitStreak >= 3) return "Now we're cooking. 🔥 Three good days in a row. Enjoy the win — tomorrow still has a vote."; if (state.profit < 0 && state.lossStreak >= 2) return "Oof. The business is feeling it. Take a breath — one smart move can change the direction."; if (decision === "raise-price" && state.consecutivePriceRaises >= 3) return "Your customers noticed. 💸 The extra margin came with a cost. Maybe give the prices a little breathing room."; if (decision === "lower-price" && state.profit > previous.profit) return "A little breathing room helped. Lower prices can recover demand when you've pushed too far."; if (decision === "raise-price" && state.profit > previous.profit) return "That price move paid off. ☕ Just remember: what works today may not work three days in a row."; if (decision === "no-action" && state.profit > 0) return "A steady day. 📈 Sometimes the smartest move is not to fix what isn't broken."; if (decision === "no-action" && state.profit < 0) return "You held steady today. That's useful information — now watch what the business is telling you."; if (state.profit > 0 && profitDelta > 0) return "Today paid off. 📈 Your business moved in the right direction. Enjoy this one."; if (state.profit > 0) return "A solid day. Nothing flashy — just a business doing its job."; if (state.profit < 0 && previous.profit >= 0) return "Careful. Costs are catching up. A rough day is information, not a verdict."; if (state.reputation > previous.reputation) return "People seem to like what you're doing. ⭐ Keep that feeling going."; if (state.reputation < previous.reputation) return "The customers have opinions. 😬 Watch what changed today before making the next move."; return "Another day in the books. Sometimes boring is profitable. Tomorrow, we try again."; }
 export function advanceDay(state: GameState, decision: Decision = "marketing", turnSpend = 0, rainToday = false): GameState {
-  const location = LOCATION_OPTIONS.find(x => x.id === state.location)!; const items = state.menu.map(id => MENU_ITEMS.find(x => x.id === id)).filter(Boolean) as MenuItem[]; const menu = menuStats(items);
-  const priceFactor = priceDemandFactor(state);
-  const qualityFactor = 0.68 + state.quality / 230;
-  const reputationFactor = 0.55 + state.reputation / 200;
-  const marketingFactor = 1 + state.marketing / 360;
-  const menuFactor = Math.min(1.80, 0.88 + menu.demand / 85);
-  const service = serviceFactor(state);
-  const marketNoise = seededNoise(state.seed, state.day);
-  const rainPenalty = rainToday ? 0.88 : 1;
-  const stockPenalty = state.inventory < 15 ? 0.68 : state.inventory < 30 ? 0.82 : state.inventory < 45 ? 0.92 : 1;
-  const demand = location.demand * priceFactor * qualityFactor * reputationFactor * marketingFactor * menuFactor * service * marketNoise * rainPenalty * stockPenalty;
-  const demandCustomers = Math.max(0, Math.min(state.serviceCapacity, Math.round(105 * demand)));
-  const customers = Math.min(demandCustomers, Math.max(0, Math.floor(state.inventory * 9)));
-  const averageTicket = Math.round((280 + menu.ticket / Math.sqrt(Math.max(1, items.length))) * (state.priceIndex / 100));
-  const revenue = customers * averageTicket;
-  const rent = Math.round(location.rentMonthly / 30);
-  const payroll = 15500 + Math.round(state.staff * 105);
-  const cogs = Math.round(revenue * (0.27 + (state.supplierCostMultiplier - 1) * 0.45));
-  const marketingSpend = Math.round(Math.max(0, state.marketing - 25) * 85);
-  const menuOperatingCost = Math.round(menu.weeklyCost / 7);
-  const capacityStress = customers >= state.serviceCapacity * 0.9 ? 3500 : customers >= state.serviceCapacity * 0.78 ? 1200 : 0;
-  const stockUsed = customers > 0 ? Math.max(4, Math.round(customers / 9)) : 0;
-  const wastage = state.inventory > 82 ? Math.round((state.inventory - 82) * 180) : 0;
-  const stockoutCost = state.inventory - stockUsed < 0 ? Math.round(Math.abs(state.inventory - stockUsed) * 250) : 0;
-  const serviceQualityPenalty = customers >= state.serviceCapacity * 0.98 ? 2 : customers >= state.serviceCapacity * 0.9 ? 1 : 0;
-  const operatingCost = rent + payroll + cogs + marketingSpend + menuOperatingCost + capacityStress + wastage + stockoutCost;
-  const profit = revenue - operatingCost - turnSpend;
-  const reputationChange = (profit > 0 ? 0.5 : -0.5) + (state.quality >= 75 ? 0.35 : 0) - serviceQualityPenalty - (state.consecutivePriceRaises >= 3 ? 1.0 : state.consecutivePriceRaises === 2 ? 0.45 : 0) - (state.inventory - stockUsed < 0 ? 1.2 : 0) + (wastage > 2000 ? -0.35 : 0);
-  const previousProfit = state.profit;
-  const nextInventory = Math.max(0, Math.min(100, state.inventory - stockUsed));
-  const next: GameState = {
-    ...state,
-    day: state.day + 1,
-    cash: Math.round(state.cash + profit + turnSpend),
-    revenue,
-    profit,
-    customers,
-    totalCustomers: state.totalCustomers + customers,
-    cumulativeRevenue: state.cumulativeRevenue + revenue,
-    cumulativeProfit: state.cumulativeProfit + profit,
-    reputation: Math.max(0, Math.min(100, Math.round((state.reputation + reputationChange) * 10) / 10)),
-    inventory: nextInventory,
-    wastageToday: wastage,
-    marketing: Math.max(25, state.marketing - 3),
-    profitableDays: state.profitableDays + (profit > 0 ? 1 : 0),
-    lossDays: state.lossDays + (profit < 0 ? 1 : 0),
-    profitStreak: profit > 0 ? state.profitStreak + 1 : 0,
-    lossStreak: profit < 0 ? state.lossStreak + 1 : 0,
-    priceChangesLast7: state.day % 7 === 0 ? 0 : state.priceChangesLast7,
-    lastDayMessage: "",
-  };
-  next.lastDayMessage = dayMessage(next, decision, state); next.milestones = addMilestones(next, previousProfit);
-  next.dayHistory = [...state.dayHistory, { day: state.day, decision, eventId: state.currentEvent?.id ?? null, eventOption: null, cashBefore: state.cash + turnSpend, cashAfter: next.cash, revenue, profit, customers, reputation: next.reputation, priceIndex: next.priceIndex, inventory: next.inventory, wastage }];
-  return next;
+  const location = LOCATION_OPTIONS.find(x => x.id === state.location)!; const items = state.menu.map(id => MENU_ITEMS.find(x => x.id === id)).filter(Boolean) as MenuItem[]; const menu = menuStats(items); const priceFactor = priceDemandFactor(state); const qualityFactor = 0.68 + state.quality / 230; const reputationFactor = 0.55 + state.reputation / 200; const marketingFactor = 1 + state.marketing / 360; const menuFactor = Math.min(1.80, 0.88 + menu.demand / 85); const service = serviceFactor(state); const marketNoise = seededNoise(state.seed, state.day); const rainPenalty = rainToday ? 0.88 : 1; const stockPenalty = state.inventory < 15 ? 0.68 : state.inventory < 30 ? 0.82 : state.inventory < 45 ? 0.92 : 1;
+  const demand = location.demand * priceFactor * qualityFactor * reputationFactor * marketingFactor * menuFactor * service * marketNoise * rainPenalty * stockPenalty; const demandCustomers = Math.max(0, Math.min(state.serviceCapacity, Math.round(105 * demand))); const customers = Math.min(demandCustomers, Math.max(0, Math.floor(state.inventory * 9))); const averageTicket = Math.round((280 + menu.ticket / Math.sqrt(Math.max(1, items.length))) * (state.priceIndex / 100)); const revenue = customers * averageTicket;
+  const rent = Math.round(location.rentMonthly / 30); const payroll = 15500 + Math.round(state.staff * 105); const cogs = Math.round(revenue * (0.27 + (state.supplierCostMultiplier - 1) * 0.45)); const marketingSpend = Math.round(Math.max(0, state.marketing - 25) * 85); const menuOperatingCost = Math.round(menu.weeklyCost / 7); const capacityStress = customers >= state.serviceCapacity * 0.9 ? 3500 : customers >= state.serviceCapacity * 0.78 ? 1200 : 0; const stockUsed = customers > 0 ? Math.max(4, Math.round(customers / 9)) : 0; const wastage = state.inventory > 82 ? Math.round((state.inventory - 82) * 180) : 0; const stockoutCost = state.inventory - stockUsed < 0 ? Math.round(Math.abs(state.inventory - stockUsed) * 250) : 0; const serviceQualityPenalty = customers >= state.serviceCapacity * 0.98 ? 2 : customers >= state.serviceCapacity * 0.9 ? 1 : 0; const operatingCost = rent + payroll + cogs + marketingSpend + menuOperatingCost + capacityStress + wastage + stockoutCost; const profit = revenue - operatingCost - turnSpend;
+  const reputationChange = (profit > 0 ? 0.5 : -0.5) + (state.quality >= 75 ? 0.35 : 0) - serviceQualityPenalty - (state.consecutivePriceRaises >= 3 ? 1.0 : state.consecutivePriceRaises === 2 ? 0.45 : 0) - (state.inventory - stockUsed < 0 ? 1.2 : 0) + (wastage > 2000 ? -0.35 : 0); const previousProfit = state.profit; const nextInventory = Math.max(0, Math.min(100, state.inventory - stockUsed));
+  const next: GameState = { ...state, day: state.day + 1, cash: Math.round(state.cash + profit + turnSpend), revenue, profit, customers, totalCustomers: state.totalCustomers + customers, cumulativeRevenue: state.cumulativeRevenue + revenue, cumulativeProfit: state.cumulativeProfit + profit, reputation: Math.max(0, Math.min(100, Math.round((state.reputation + reputationChange) * 10) / 10)), inventory: nextInventory, wastageToday: wastage, marketing: Math.max(25, state.marketing - 3), profitableDays: state.profitableDays + (profit > 0 ? 1 : 0), lossDays: state.lossDays + (profit < 0 ? 1 : 0), profitStreak: profit > 0 ? state.profitStreak + 1 : 0, lossStreak: profit < 0 ? state.lossStreak + 1 : 0, priceChangesLast7: state.day % 7 === 0 ? 0 : state.priceChangesLast7, lastDayMessage: "" };
+  next.lastDayMessage = dayMessage(next, decision, state); next.milestones = addMilestones(next, previousProfit); next.dayHistory = [...state.dayHistory, { day: state.day, decision, eventId: state.currentEvent?.id ?? null, eventOption: null, cashBefore: state.cash + turnSpend, cashAfter: next.cash, revenue, profit, customers, reputation: next.reputation, priceIndex: next.priceIndex, inventory: next.inventory, wastage }]; return next;
 }
-
 function makeEvent(id: GameEventId, title: string, narrative: string, severity: 1 | 2 | 3, options: GameEvent["options"]): GameEvent { return { id, title, narrative, severity, options }; }
 export function generateEvent(state: GameState): GameEvent | null {
   if (state.day < 3 || state.currentEvent || state.day - state.lastEventDay < 2) return null; const candidates: GameEvent[] = [];
@@ -233,17 +106,6 @@ export function generateEvent(state: GameState): GameEvent | null {
 }
 export function applyEvent(state: GameState, optionId: string): GameState {
   if (!state.currentEvent) return state; const event = state.currentEvent; const next = { ...state, currentEvent: null, lastEventDay: state.day, eventHistory: [...state.eventHistory, `${state.day}:${event.id}:${optionId}`] };
-  switch (event.id) {
-    case "supplier-increase": if (optionId === "switch-supplier" && next.cash >= 12000) next.cash -= 12000; else if (optionId === "accept-supplier") next.supplierCostMultiplier = Math.min(1.5, next.supplierCostMultiplier + 0.18); break;
-    case "stock-shortage": if (optionId === "emergency-stock" && next.cash >= 15000) next.cash -= 15000; else if (optionId === "conserve-stock") next.inventory = Math.max(0, next.inventory - 15); break;
-    case "bad-review": if (optionId === "hold-price") { next.consecutivePriceRaises = 0; next.reputation = Math.min(100, next.reputation + 1); } else if (optionId === "add-value" && next.cash >= 12000) { next.cash -= 12000; next.reputation = Math.min(100, next.reputation + 1); next.quality = Math.min(100, next.quality + 2); } else if (optionId === "ignore-review") next.reputation = Math.max(0, next.reputation - 4); break;
-    case "rain": if (optionId === "delivery-push" && next.cash >= 9000) { next.cash -= 9000; next.marketing = Math.min(100, next.marketing + 10); } break;
-    case "competitor-promotion": if (optionId === "match-offer" && next.cash >= 14000) { next.cash -= 14000; next.marketing = Math.min(100, next.marketing + 12); } else if (optionId === "differentiate" && next.cash >= 12000) { next.cash -= 12000; next.quality = Math.min(100, next.quality + 6); } else if (optionId === "ignore-competitor") next.reputation = Math.max(0, next.reputation - 1); break;
-    case "local-event": if (optionId === "prepare-staff" && next.cash >= 16000) { next.cash -= 16000; next.serviceCapacity = Math.min(600, next.serviceCapacity + 20); } break;
-    case "equipment-issue": if (optionId === "repair-now" && next.cash >= 18000) next.cash -= 18000; else if (optionId === "delay-repair") next.quality = Math.max(0, next.quality - 8); break;
-    case "viral-mention": if (optionId === "amplify" && next.cash >= 10000) { next.cash -= 10000; next.marketing = Math.min(100, next.marketing + 18); } else if (optionId === "let-it-spread") next.reputation = Math.min(100, next.reputation + 1); break;
-    case "bulk-order": if (optionId === "accept-order") next.serviceCapacity = Math.min(600, next.serviceCapacity + 10); break;
-    case "staff-absence": if (optionId === "cover-shift") next.staff = Math.min(100, next.staff + 3); else next.quality = Math.max(0, next.quality - 4); break;
-  }
+  switch (event.id) { case "supplier-increase": if (optionId === "switch-supplier" && next.cash >= 12000) next.cash -= 12000; else if (optionId === "accept-supplier") next.supplierCostMultiplier = Math.min(1.5, next.supplierCostMultiplier + 0.18); break; case "stock-shortage": if (optionId === "emergency-stock" && next.cash >= 15000) next.cash -= 15000; else if (optionId === "conserve-stock") next.inventory = Math.max(0, next.inventory - 15); break; case "bad-review": if (optionId === "hold-price") { next.consecutivePriceRaises = 0; next.reputation = Math.min(100, next.reputation + 1); } else if (optionId === "add-value" && next.cash >= 12000) { next.cash -= 12000; next.reputation = Math.min(100, next.reputation + 1); next.quality = Math.min(100, next.quality + 2); } else if (optionId === "ignore-review") next.reputation = Math.max(0, next.reputation - 4); break; case "rain": if (optionId === "delivery-push" && next.cash >= 9000) { next.cash -= 9000; next.marketing = Math.min(100, next.marketing + 10); } break; case "competitor-promotion": if (optionId === "match-offer" && next.cash >= 14000) { next.cash -= 14000; next.marketing = Math.min(100, next.marketing + 12); } else if (optionId === "differentiate" && next.cash >= 12000) { next.cash -= 12000; next.quality = Math.min(100, next.quality + 6); } else if (optionId === "ignore-competitor") next.reputation = Math.max(0, next.reputation - 1); break; case "local-event": if (optionId === "prepare-staff" && next.cash >= 16000) { next.cash -= 16000; next.serviceCapacity = Math.min(600, next.serviceCapacity + 20); } break; case "equipment-issue": if (optionId === "repair-now" && next.cash >= 18000) next.cash -= 18000; else if (optionId === "delay-repair") next.quality = Math.max(0, next.quality - 8); break; case "viral-mention": if (optionId === "amplify" && next.cash >= 10000) { next.cash -= 10000; next.marketing = Math.min(100, next.marketing + 18); } else if (optionId === "let-it-spread") next.reputation = Math.min(100, next.reputation + 1); break; case "bulk-order": if (optionId === "accept-order") next.serviceCapacity = Math.min(600, next.serviceCapacity + 10); break; case "staff-absence": if (optionId === "cover-shift") next.staff = Math.min(100, next.staff + 3); else next.quality = Math.max(0, next.quality - 4); break; }
   return next;
 }
