@@ -34,9 +34,10 @@ export async function POST(request: Request) {
     if (session.status !== "active") return NextResponse.json({ error: "This game is already finished." }, { status: 409 });
 
     const state = session.state as GameState;
+    const model = process.env.OPENAI_MODEL || "gpt-5.6-luna";
     const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
     const response = await client.responses.create({
-      model: process.env.OPENAI_MODEL || "gpt-5.6-luna",
+      model,
       input: [
         {
           role: "system",
@@ -52,7 +53,24 @@ export async function POST(request: Request) {
     });
 
     return NextResponse.json({ message: response.output_text, configured: true });
-  } catch {
+  } catch (error) {
+    const err = error as {
+      status?: number;
+      code?: string;
+      type?: string;
+      message?: string;
+      request_id?: string;
+    };
+
+    console.error("[ai/customer] OpenAI request failed", {
+      status: err?.status ?? null,
+      code: err?.code ?? null,
+      type: err?.type ?? null,
+      message: err?.message ?? String(error),
+      requestId: err?.request_id ?? null,
+      model: process.env.OPENAI_MODEL || "gpt-5.6-luna",
+    });
+
     return NextResponse.json({ error: "AI interaction failed." }, { status: 502 });
   }
 }
