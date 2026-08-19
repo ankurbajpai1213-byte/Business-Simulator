@@ -11,7 +11,7 @@ export async function POST() {
   try {
     const supabase = getSupabaseAdmin();
     const playerId = (await cookies()).get(PLAYER_COOKIE)?.value ?? null;
-    const { data, error } = await supabase.from("game_sessions").insert({ city: "mumbai", business_type: "cafe", player_id: playerId, state: INITIAL_STATE, status: "active" }).select("id, state").single();
+    const { data, error } = await supabase.from("game_sessions").insert({ city: "mumbai", business_type: "cafe", user_id: playerId, state: INITIAL_STATE, status: "active" }).select("id, state").single();
     if (error || !data) throw error ?? new Error("Unable to create new business.");
     const response = NextResponse.json({ state: data.state, sessionId: data.id });
     response.cookies.set(SESSION_COOKIE, data.id, { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "lax", path: "/", maxAge: COOKIE_MAX_AGE });
