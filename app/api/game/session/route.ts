@@ -17,19 +17,19 @@ export async function GET() {
   try {
     const cookieStore = await cookies();
     const existingId = cookieStore.get(SESSION_COOKIE)?.value;
-    const playerId = cookieStore.get(PLAYER_COOKIE)?.value;
+    const playerId = cookieStore.get(PLAYER_COOKIE)?.value ?? null;
     const supabase = getSupabaseAdmin();
     if (existingId) {
-      const { data, error } = await supabase.from("game_sessions").select("id, state, player_id").eq("id", existingId).eq("status", "active").maybeSingle();
+      const { data, error } = await supabase.from("game_sessions").select("id, state, user_id").eq("id", existingId).eq("status", "active").maybeSingle();
       if (error) throw error;
       if (data) {
         const state = upgradeLegacyState(data.state as Partial<GameState>);
         if ((data.state as Partial<GameState>).version !== 3) await supabase.from("game_sessions").update({ state }).eq("id", data.id);
-        if (playerId && !data.player_id) await supabase.from("game_sessions").update({ player_id: playerId }).eq("id", data.id);
-        return NextResponse.json({ state, sessionId: data.id, playerId: playerId ?? data.player_id ?? null });
+        if (playerId && !data.user_id) await supabase.from("game_sessions").update({ user_id: playerId }).eq("id", data.id);
+        return NextResponse.json({ state, sessionId: data.id, playerId: playerId ?? data.user_id ?? null });
       }
     }
-    const { data, error } = await supabase.from("game_sessions").insert({ city: "mumbai", business_type: "cafe", player_id: playerId || null, state: INITIAL_STATE, status: "active" }).select("id, state, player_id").single();
+    const { data, error } = await supabase.from("game_sessions").insert({ city: "mumbai", business_type: "cafe", user_id: playerId, state: INITIAL_STATE, status: "active" }).select("id, state, user_id").single();
     if (error || !data) throw error ?? new Error("Unable to create game session.");
     return responseWithSession({ state: data.state as GameState, sessionId: data.id }, data.id);
   } catch (error) {
