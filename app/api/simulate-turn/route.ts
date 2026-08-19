@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
-import { applyDecision, advanceDay, applyEvent, generateEvent, isDecisionAvailable, type Decision, type GameState } from "@/lib/simulation";
+import { applyDecision, advanceDay, applyEvent, generateEvent, isDecisionAvailable, type Decision, type GameEventId, type GameState } from "@/lib/simulation";
 
 const SESSION_COOKIE = "bs_session";
 const decisions = new Set<Decision>(["raise-price", "lower-price", "marketing", "hire", "quality", "inventory", "no-action"]);
@@ -21,7 +21,7 @@ export async function POST(request: Request) {
     const turnCashBefore = originalState.cash;
     let currentState = originalState;
     let resolvedEventTitle: string | null = null;
-    let resolvedEventId: string | null = null;
+    let resolvedEventId: GameEventId | null = null;
     let resolvedEventOption: string | null = null;
 
     if (currentState.currentEvent) {
@@ -41,7 +41,7 @@ export async function POST(request: Request) {
     currentState = applyDecision(currentState, body.decision);
     const turnSpend = Math.max(0, turnCashBefore - currentState.cash);
     const rainToday = resolvedEventId === "rain";
-    const nextState = advanceDay(currentState, body.decision, turnSpend, rainToday, resolvedEventId as GameState["currentEvent"] extends infer _ ? any : never, resolvedEventOption);
+    const nextState = advanceDay(currentState, body.decision, turnSpend, rainToday, resolvedEventId, resolvedEventOption);
     const event = generateEvent(nextState);
     nextState.currentEvent = event;
 
