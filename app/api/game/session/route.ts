@@ -44,7 +44,8 @@ export async function GET() {
 
     if (error || !data) throw error ?? new Error("Unable to create game session.");
     return responseWithSession({ state: data.state as GameState, sessionId: data.id }, data.id);
-  } catch {
+  } catch (error) {
+    console.error("[game/session] Game session service failed:", error);
     return NextResponse.json({ error: "Game session service is not configured." }, { status: 503 });
   }
 }
