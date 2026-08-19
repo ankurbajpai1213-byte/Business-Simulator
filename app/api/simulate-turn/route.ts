@@ -17,10 +17,12 @@ export async function POST(request: Request) {
     if (session.status !== "active") return NextResponse.json({ error: "This game is already finished." }, { status: 409 });
 
     let currentState = session.state as GameState;
+    let resolvedEventTitle: string | null = null;
     if (currentState.currentEvent) {
       if (!body.eventOption) return NextResponse.json({ error: "Resolve the current business event first." }, { status: 409 });
       const valid = currentState.currentEvent.options.some((option) => option.id === body.eventOption);
       if (!valid) return NextResponse.json({ error: "Invalid event decision." }, { status: 400 });
+      resolvedEventTitle = currentState.currentEvent.title;
       currentState = applyEvent(currentState, body.eventOption);
     }
     if (!body.decision || !decisions.has(body.decision)) return NextResponse.json({ error: "Invalid simulation request." }, { status: 400 });
@@ -32,7 +34,27 @@ export async function POST(request: Request) {
 
     const { error: updateError } = await supabase.from("game_sessions").update({ state: nextState, status }).eq("id", sessionId).eq("status", "active");
     if (updateError) throw updateError;
-    const { error: eventError } = await supabase.from("game_events").insert({ session_id: sessionId, day: nextState.day, event_type: event ? "business_event" : "day_advanced", payload: { decision: body.decision, eventOption: body.eventOption ?? null, eventId: event?.id ?? null, revenue: nextState.revenue, profit: nextState.profit, status } });
+
+    const { error: eventError } = await supabase.from("game_events").insert({
+      session_id: sessionId,
+      day: nextState.day,
+      event_type: event ? "business_event" : "day_advanced",
+      payload: {
+        decision: body.decision,
+        eventOption: body.eventOption ?? null,
+        resolvedEventTitle,
+        eventId: event?.id ?? null,
+        revenue: nextState.revenue,
+        profit: nextState.profit,
+        customers: nextState.customers,
+        cash: nextState.cash,
+        reputation: nextState.reputation,
+        staff: nextState.staff,
+        quality: nextState.quality,
+        inventory: nextState.inventory,
+        status,
+      },
+    });
     if (eventError) throw eventError;
     return NextResponse.json({ state: nextState, status });
   } catch (error) {
