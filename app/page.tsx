@@ -14,7 +14,9 @@ import {
 const DECISIONS: Array<[Decision, string, string, string]> = [
   ["marketing", "Run marketing", "Bring more people through the door.", "₹10,000"],
   ["quality", "Improve quality", "Better product, better word of mouth.", "₹12,000"],
-  ["inventory", "Restock", "Refill the shelves.", "₹8,000"],
+  ["inventory", "Restock ×1", "+30% stock — about 3 days.", "₹8,000"],
+  ["inventory-2", "Restock ×2", "+60% stock — about a week.", "₹15,000"],
+  ["inventory-3", "Restock ×3", "+90% stock — waste risk if quiet.", "₹21,000"],
   ["hire", "Hire staff", "Serve more people per day.", "₹18,000"],
   ["raise-price", "Raise prices", "More per sale — if they stay.", "Free"],
   ["lower-price", "Lower prices", "Win back customers you priced out.", "Free"],
@@ -50,6 +52,8 @@ export default function Home() {
   const [error, setError] = useState("");
   const [historyOpen, setHistoryOpen] = useState(false);
   const [detail, setDetail] = useState<MetricKey | null>(null);
+  const [promoted, setPromoted] = useState<{ from: string; to: string; label: string } | null>(null);
+  const [ledgerOpen, setLedgerOpen] = useState(false);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
 
   useEffect(() => { (async () => {
@@ -103,6 +107,8 @@ export default function Home() {
       const after = d.state as GameState;
       setState(after); setPicked([]); setEventOption(null);
       setSummary({ before, after, decision: chosen.find(x => x !== "no-action") ?? chosen[0], picked: chosen, report: d.report as SpanReport | undefined });
+      const wasStage = stageFor(before.day), nowStage = stageFor(after.day);
+      if (wasStage.id !== nowStage.id) setPromoted({ from: wasStage.unit, to: nowStage.unit, label: nowStage.label });
     } catch (e) { setError(e instanceof Error ? e.message : "Unable to finish the turn."); }
     finally { setBusy(false); }
   };
@@ -208,7 +214,10 @@ export default function Home() {
           </div>
         </header>
 
-        <CafeScene format={state.format} busy={state.serviceCapacity > 0 ? state.customers / state.serviceCapacity : 0} raining={state.currentEvent?.id === "rain"} />
+        <button className="scene-tap" onClick={() => setLedgerOpen(true)} aria-label="Open the books">
+          <CafeScene format={state.format} busy={state.serviceCapacity > 0 ? state.customers / state.serviceCapacity : 0} raining={state.currentEvent?.id === "rain"} />
+          <span className="scene-hint">{state.customers > 0 ? `${state.customers} in yesterday` : "Nobody in yesterday"} · tap for the books</span>
+        </button>
 
         <div className="metrics">
           <Metric label="Cash" value={formatCompactINR(state.cash)} series={series("cash")} onClick={() => setDetail("cash")} />
@@ -269,10 +278,76 @@ export default function Home() {
         <EventModal event={state.currentEvent} cash={state.cash} onChoose={setEventOption} />
       )}
       {summary && <DaySummary {...summary} onClose={() => setSummary(null)} />}
+      {!summary && promoted && <PromotionModal {...promoted} onClose={() => setPromoted(null)} />}
       {detail && <MetricDetail metric={detail} state={state} onClose={() => setDetail(null)} />}
+      {ledgerOpen && <LedgerModal state={state} onClose={() => setLedgerOpen(false)} />}
       {historyOpen && <HistoryModal state={state} onClose={() => setHistoryOpen(false)} />}
       {feedbackOpen && <FeedbackModal onDone={submitFeedback} />}
     </main>
+  );
+}
+
+function LedgerModal({ state, onClose }: { state: GameState; onClose: () => void }) {
+  const loc = LOCATION_OPTIONS.find(l => l.id === state.location);
+  const fmt = FORMAT_OPTIONS.find(f => f.id === state.format);
+  const rentDaily = Math.round((loc?.rentMonthly ?? 0) / 30);
+  const payrollDaily = 7000 + Math.round(state.staff * 60);
+  const daysOpen = Math.max(1, state.day - 1);
+  const avgRevenue = Math.round(state.cumulativeRevenue / daysOpen);
+  const costs = Math.round((state.cumulativeRevenue - state.cumulativeProfit) / daysOpen);
+  return (
+    <Modal onClose={onClose}>
+      <div className="eyebrow">{state.businessName || "Your cafe"}</div>
+      <h2>The books</h2>
+      <p className="detail-what">{fmt?.name} in {loc?.name}. Open {daysOpen} day{daysOpen === 1 ? "" : "s"}.</p>
+
+      <div className="ledger-head">Yesterday</div>
+      <div className="plan-rows">
+        <div><span>Customers served</span><strong>{state.customers}</strong></div>
+        <div><span>Revenue</span><strong>{formatINR(state.revenue)}</strong></div>
+        <div><span>Profit</span><strong className={state.profit >= 0 ? "pos" : "neg"}>{formatINR(state.profit)}</strong></div>
+        <div><span>Stock wasted</span><strong>{formatINR(state.wastageToday)}</strong></div>
+      </div>
+
+      <div className="ledger-head">What it costs to open the doors</div>
+      <div className="plan-rows">
+        <div><span>Rent</span><strong>{formatINR(rentDaily)}/day</strong></div>
+        <div><span>Wages</span><strong>{formatINR(payrollDaily)}/day</strong></div>
+        <div><span>Average daily costs</span><strong>{formatINR(costs)}</strong></div>
+        <div><span>Average daily revenue</span><strong>{formatINR(avgRevenue)}</strong></div>
+      </div>
+
+      <div className="ledger-head">Since you opened</div>
+      <div className="plan-rows">
+        <div><span>Total customers</span><strong>{state.totalCustomers.toLocaleString("en-IN")}</strong></div>
+        <div><span>Total revenue</span><strong>{formatINR(state.cumulativeRevenue)}</strong></div>
+        <div><span>Total profit</span><strong className={state.cumulativeProfit >= 0 ? "pos" : "neg"}>{formatINR(state.cumulativeProfit)}</strong></div>
+        <div><span>Good days vs bad</span><strong>{state.profitableDays} / {state.lossDays}</strong></div>
+        <div><span>Can serve</span><strong>{state.serviceCapacity}/day</strong></div>
+        <div><span>Menu</span><strong>{state.menu.length} items</strong></div>
+      </div>
+      <button className="primary" onClick={onClose}>Close the books</button>
+    </Modal>
+  );
+}
+
+function PromotionModal({ from, to, label, onClose }: { from: string; to: string; label: string; onClose: () => void }) {
+  return (
+    <Modal onClose={onClose}>
+      <div className="promo">
+        <div className="promo-mark">✦</div>
+        <div className="eyebrow">{label}</div>
+        <h2>You&rsquo;re past the hard part.</h2>
+        <p>The cafe is standing on its own feet. You don&rsquo;t need to watch it every {from} any more — from here you&rsquo;ll plan a {to} at a time.</p>
+        <div className="promo-steps">
+          <span className="done">Every {from}</span>
+          <i>→</i>
+          <span className="now">Every {to}</span>
+        </div>
+        <p className="promo-note">More time passes between your decisions, so each one carries further. You&rsquo;ll also get more than one thing to do.</p>
+        <button className="primary" onClick={onClose}>Keep going</button>
+      </div>
+    </Modal>
   );
 }
 
@@ -329,8 +404,9 @@ function MetricDetail({ metric, state, onClose }: { metric: MetricKey; state: Ga
       what: "What people locally think of you. It pulls customers in slowly and pushes them away quickly.",
       rows: [["Now", `${Math.round(state.reputation)}%`],
              ["Vs yesterday", prev ? `${(state.reputation - prev.reputation).toFixed(1)}` : "—"],
-             ["Quality", `${state.quality}%`]],
-      note: "It rises with good quality and profitable days. It falls with repeated price rises, running out of stock, and queues you can't handle.",
+             ["Your quality", `${state.quality}%`],
+             ["Ceiling from quality", `${Math.min(100, state.quality + 22)}%`]],
+      note: `Reputation follows quality. It can sit up to 22 points above your quality of ${state.quality}%, but no higher — push past that and it drifts back down. It also falls when you run out of stock, raise prices repeatedly, or serve nobody at all.`,
     },
     stock: {
       title: "Stock", big: `${Math.round(state.inventory)}%`,
@@ -494,16 +570,24 @@ function HistoryModal({ state, onClose }: { state: GameState; onClose: () => voi
   const items: DayRecord[] = [...state.dayHistory].reverse();
   return (
     <Modal onClose={onClose}>
-      <Eyebrow>Your journey</Eyebrow>
+      <div className="eyebrow">Your journey</div>
       <h2>What you did</h2>
       {items.length === 0 && <p>No finished days yet.</p>}
       <div className="stack">
-        {items.map(it => (
-          <div className="history-row" key={`${it.day}-${it.decision}`}>
-            <div className="choice-head"><strong>Day {it.day}</strong><span className={it.profit >= 0 ? "pos" : "neg"}>{formatINR(it.profit)}</span></div>
-            <small>{decisionName(it.decision)} · {it.customers} customers · reputation {Math.round(it.reputation)}</small>
-          </div>
-        ))}
+        {items.map(it => {
+          const spend = Math.max(0, it.cashBefore - it.cashAfter + it.profit);
+          return (
+            <div className="history-row" key={`${it.day}-${it.decision}`}>
+              <div className="choice-head">
+                <strong>Day {it.day} · {decisionName(it.decision)}</strong>
+                <span className={it.profit >= 0 ? "pos" : "neg"}>{formatINR(it.profit)}</span>
+              </div>
+              <small>{it.customers} customers · stock {Math.round(it.inventory)}% · reputation {Math.round(it.reputation)}%</small>
+              <small>{spend > 0 ? `Spent ${formatINR(spend)}` : "Spent nothing"}{it.wastage > 0 ? ` · ${formatINR(it.wastage)} wasted` : ""}</small>
+              {it.eventId && <div className="hist-event">Event: {it.eventId.replace(/-/g, " ")} → {(it.eventOption ?? "").replace(/-/g, " ")}</div>}
+            </div>
+          );
+        })}
       </div>
     </Modal>
   );
@@ -541,9 +625,12 @@ function Eyebrow({ children }: { children: ReactNode }) { return <div className=
 function H1({ children }: { children: ReactNode }) { return <h1>{children}</h1>; }
 function P({ children }: { children: ReactNode }) { return <p className="lead">{children}</p>; }
 function Metric({ label, value, tone, series, onClick }: { label: string; value: string; tone?: "pos" | "neg"; series?: number[]; onClick?: () => void }) {
-  return <button className="metric" onClick={onClick} aria-label={`${label}: ${value}. Tap for detail.`}>
+  const [flash, setFlash] = useState(false);
+  useEffect(() => { setFlash(true); const t = setTimeout(() => setFlash(false), 600); return () => clearTimeout(t); }, [value]);
+  return <button className={`metric ${flash ? "flash" : ""}`} onClick={onClick} aria-label={`${label}: ${value}. Tap for more detail.`}>
     <span>{label}</span><strong className={tone ?? ""}>{value}</strong>
     {series && series.length > 1 && <Spark values={series} />}
+    <i className="tapdot" aria-hidden="true" />
   </button>;
 }
 function Modal({ children, onClose }: { children: ReactNode; onClose: () => void }) {
