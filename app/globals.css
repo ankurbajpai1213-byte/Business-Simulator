@@ -138,3 +138,29 @@ p.lead{font-size:16px;color:var(--ink);opacity:.82}
 .plan-rows>div{display:flex;justify-content:space-between;gap:12px;padding:12px 14px;background:var(--card)}
 .plan-rows span{font-size:13.5px;color:var(--muted)}
 .plan-rows strong{font-size:13.5px;font-weight:650}
+
+/* ---------- game screen ---------- */
+.scene{width:100%;height:auto;display:block;border:1px solid var(--line);border-radius:16px;margin-bottom:12px;background:#eef1f2}
+.sky{fill:#e8eef0}.sun{fill:#f0d9a0}
+.person-head{fill:#8d8477}.person-body{fill:#8d8477}
+.person{animation:pop .4s ease-out backwards}
+@keyframes pop{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+.rain{stroke:#9fb3bd;stroke-width:1.4;stroke-linecap:round;animation:fall .7s linear infinite}
+@keyframes fall{from{transform:translateY(-12px);opacity:0}30%{opacity:1}to{transform:translateY(90px);opacity:0}}
+.empty-note{fill:#a49c90;font-size:9px;font-style:italic}
+@media(prefers-reduced-motion:reduce){.person,.rain{animation:none}}
+
+.spark{width:100%;height:20px;margin-top:6px;display:block}
+.spark polyline{fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.spark.up polyline{stroke:#7fa78d}.spark.down polyline{stroke:#c49384}
+
+.choice-card.dec{display:flex;align-items:center;gap:11px}
+.dec-text{flex:1;min-width:0}
+.dec-icon{width:24px;height:24px;flex-shrink:0}
+.dec-cost{font-size:12px;font-weight:650;color:#5b554c;flex-shrink:0}
+.choice-card.dec small{margin-top:3px}
+
+.verdict{font-size:19px;line-height:1.35;margin-bottom:14px}
+.trend{margin-top:12px;padding:12px;background:var(--tint);border-radius:12px}
+.trend span{display:block;font-size:11.5px;color:var(--muted);font-weight:600;margin-bottom:2px}
+.daymsg{margin-top:12px;font-size:14px;line-height:1.5;color:var(--muted)}
