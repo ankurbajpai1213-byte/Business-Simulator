@@ -21,6 +21,10 @@ const DECISIONS: Array<[Decision, string, string]> = [
   ["raise-price", "Raise prices", "Free"],
   ["lower-price", "Lower prices", "Free"],
   ["no-action", "Do nothing", "Free"],
+  ["supply-contract", "Supply contract", "₹35,000"],
+  ["hire-manager", "Hire a manager", "₹45,000"],
+  ["extend-hours", "Extend opening hours", "₹22,000"],
+  ["loyalty-programme", "Regulars programme", "₹30,000"],
 ];
 
 /** What this choice will actually do, given where the business is right now. */
@@ -59,12 +63,25 @@ function outlook(id: Decision, state: GameState, spanDays: number): { line: stri
                warn: state.consecutivePriceRaises >= 2 ? "You have raised prices repeatedly — customers are noticing" : undefined };
     case "lower-price":
       return { line: `Price ${state.priceIndex} → ${Math.max(100, state.priceIndex - 6)} · win people back, thinner margin` };
+    case "supply-contract":
+      return { line: "Standing deliveries keep stock near 78% without ordering · costs ~3.5% of sales",
+               warn: spanDays < 14 ? "Most useful once you plan a fortnight or month at a time" : undefined };
+    case "hire-manager":
+      return { line: "Someone runs the floor · less service strain, steadier reputation · +₹2,600/day wages" };
+    case "extend-hours":
+      return { line: `Serve ${state.serviceCapacity} → ${Math.min(600, state.serviceCapacity + 40)}/day and catch more trade · +₹1,900/day wages`,
+               warn: state.inventory < 30 ? "More opening hours needs more stock" : undefined };
+    case "loyalty-programme":
+      return { line: "Regulars come back more often · steady lift to demand · +₹700/day",
+               warn: state.reputation < 45 ? "Works best once people already like you" : undefined };
     default:
       return { line: `Spend nothing and see how the ${spanDays > 1 ? "period" : "day"} goes`,
                warn: state.inventory < 20 ? "Stock is low — doing nothing is a risk" : undefined };
   }
 }
 
+const idxOf = (id: Decision) => DECISIONS.findIndex(d => d[0] === id);
+const STRATEGIC = new Set<Decision>(["supply-contract", "hire-manager", "extend-hours", "loyalty-programme"]);
 const decisionName = (id: Decision) => DECISIONS.find(x => x[0] === id)?.[1] ?? "your decision";
 
 const EVENT_NAMES: Record<string, string> = {
@@ -310,7 +327,7 @@ export default function Home() {
           </div>
           </div>
           <div className="dec-grid">
-            {DECISIONS.map(([id, title, cost]) => {
+            {DECISIONS.filter(([id]) => available.has(id) || !STRATEGIC.has(id)).map(([id, title, cost]) => {
               const on = picked.includes(id);
               const blockedByPrice = (id === "raise-price" && picked.includes("lower-price")) || (id === "lower-price" && picked.includes("raise-price"));
               const full = !on && picked.length >= slots;
@@ -321,10 +338,11 @@ export default function Home() {
                 : full ? "No slots left this turn"
                 : look.line;
               return (
-                <button key={id} className={`choice-card dec ${on ? "selected" : ""} ${!ok && !on ? "locked" : ""}`}
+                <button key={id} style={{ animationDelay: `${Math.min(8, idxOf(id)) * 28}ms` }} className={`choice-card dec pop ${on ? "selected" : ""} ${!ok && !on ? "locked" : ""}`}
                   onClick={() => { if (on) setPicked(p => p.filter(x => x !== id)); else if (ok) setPicked(p => [...p, id]); }}
                   disabled={busy || (!ok && !on)}>
                   <div className="dec-row">
+                    {STRATEGIC.has(id) && <span className="strat-flag">Long term</span>}
                     <DecisionIcon id={id} />
                     <strong>{title}</strong>
                     <span className="dec-cost">{cost}</span>
@@ -596,6 +614,9 @@ function DaySummary({ before, after, decision, picked, report, onClose }: { befo
 
   return (
     <Modal onClose={onClose}>
+      {(report ? report.profit > 0 : after.profit > 0) && (
+        <div className="burst" aria-hidden="true">{[0,1,2,3,4,5].map(i => <i key={i} style={{ animationDelay: `${i * 70}ms`, left: `${12 + i * 14}%` }}>₹</i>)}</div>
+      )}
       <div className="eyebrow">{multi && report ? `Days ${report.fromDay}–${report.toDay}` : `Day ${before.day} done`}</div>
       {report?.interrupted && (
         <div className="interrupt">
