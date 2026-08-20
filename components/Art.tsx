@@ -121,3 +121,61 @@ const ICONS: Record<string, ReactNode> = {
 export function FoodIcon({ id }: { id: string }) {
   return <svg className="food-icon" viewBox="0 0 24 24" aria-hidden="true">{ICONS[id] ?? bowl}</svg>;
 }
+
+/* ---------- game screen art ---------- */
+
+export function CafeScene({ format, busy, raining }: { format: string; busy: number; raining: boolean }) {
+  // busy: 0..1 share of capacity being used -> how many figures appear
+  const people = Math.min(7, Math.round(busy * 7));
+  const seats = format === "takeaway" ? 0 : format === "full-cafe" ? 6 : 4;
+  const spots: Array<[number, number]> = format === "full-cafe"
+    ? [[34,54],[58,54],[82,54],[34,70],[58,70],[82,70]]
+    : [[40,58],[70,58],[40,72],[70,72]];
+  return (
+    <svg className="scene" viewBox="0 0 160 96" role="img" aria-label={raining ? "Your cafe in the rain" : busy > .7 ? "Your cafe, busy" : busy > .3 ? "Your cafe, ticking along" : "Your cafe, quiet"}>
+      <rect x="0" y="0" width="160" height="96" className="sky" />
+      {!raining && <circle cx="136" cy="18" r="9" className="sun" />}
+      <rect x="14" y="24" width="132" height="58" className="bld-main" rx="4" />
+      <rect x="14" y="24" width="132" height="9" className="awning" />
+      <rect x="14" y="78" width="132" height="4" className="counter" />
+      {Array.from({ length: seats }).map((_, i) => {
+        const [x, y] = spots[i] ?? [0, 0];
+        return <circle key={i} cx={x} cy={y} r="6" className="table" />;
+      })}
+      {Array.from({ length: people }).map((_, i) => {
+        const [x, y] = spots[i] ?? [26 + i * 18, 70];
+        return <g key={i} className="person" style={{ animationDelay: `${i * 0.18}s` }}>
+          <circle cx={x} cy={y - 7} r="2.6" className="person-head" />
+          <path d={`M${x - 3.4} ${y + 1} q3.4 -5 6.8 0 z`} className="person-body" />
+        </g>;
+      })}
+      {people === 0 && <text x="80" y="60" className="empty-note" textAnchor="middle">quiet today</text>}
+      {raining && Array.from({ length: 16 }).map((_, i) => (
+        <line key={i} className="rain" style={{ animationDelay: `${(i % 5) * 0.14}s` }}
+          x1={6 + i * 10} y1="0" x2={2 + i * 10} y2="10" />
+      ))}
+      <rect x="0" y="82" width="160" height="14" className="road" />
+    </svg>
+  );
+}
+
+const D_ICONS: Record<string, ReactNode> = {
+  marketing: <><path d="M4 10 L14 5 v14 L4 14 z" className="fi-body" /><path d="M14 8 a4 4 0 0 1 0 8" className="fi-line" /></>,
+  quality: <path d="M12 3 l2.6 5.6 6 .8 -4.4 4.2 1.1 6.1 -5.3 -2.9 -5.3 2.9 1.1 -6.1 -4.4 -4.2 6 -.8 z" className="fi-body" />,
+  inventory: <><path d="M4 8 h16 v12 h-16 z" className="fi-body" /><path d="M4 8 l3 -4 h10 l3 4" className="fi-line" /><path d="M12 8 v12" className="fi-line" /></>,
+  hire: <><circle cx="9" cy="8" r="3.4" className="fi-body" /><path d="M3 20 q6 -7 12 0 z" className="fi-body" /><path d="M18 6 v7 M14.5 9.5 h7" className="fi-line" /></>,
+  "raise-price": <><path d="M12 20 V5 M6 11 l6 -6 6 6" className="fi-line" /></>,
+  "lower-price": <><path d="M12 4 v15 M6 13 l6 6 6 -6" className="fi-line" /></>,
+  "no-action": <><circle cx="12" cy="12" r="8" className="fi-line" /><path d="M12 7 v5 l3.5 2" className="fi-line" /></>,
+};
+export function DecisionIcon({ id }: { id: string }) {
+  return <svg className="dec-icon" viewBox="0 0 24 24" aria-hidden="true">{D_ICONS[id] ?? D_ICONS["no-action"]}</svg>;
+}
+
+export function Spark({ values }: { values: number[] }) {
+  if (values.length < 2) return null;
+  const w = 100, h = 28, min = Math.min(...values), max = Math.max(...values), range = max - min || 1;
+  const pts = values.map((v, i) => `${(i / (values.length - 1)) * w},${h - ((v - min) / range) * (h - 4) - 2}`).join(" ");
+  const up = values[values.length - 1] >= values[0];
+  return <svg className={`spark ${up ? "up" : "down"}`} viewBox={`0 0 ${w} ${h}`} aria-hidden="true"><polyline points={pts} /></svg>;
+}
