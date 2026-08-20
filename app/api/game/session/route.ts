@@ -30,14 +30,14 @@ export async function GET() {
       if (data) {
         const state = upgradeLegacyState(data.state as Partial<GameState>);
         if ((data.state as Partial<GameState>).version !== 4 || typeof (data.state as Partial<GameState>).wastageToday !== "number") await supabase.from("game_sessions").update({ state }).eq("id", data.id);
-        if (playerId && !data.user_id) await supabase.from("game_sessions").update({ user_id: playerId }).eq("id", data.id);
+        if (playerId) await supabase.from("game_sessions").update({ user_id: playerId, player_id: playerId }).eq("id", data.id);
         return NextResponse.json({ state, sessionId: data.id, playerId: playerId ?? data.user_id ?? null });
       }
     }
 
     if (existingId) await supabase.from("game_sessions").update({ status: "superseded" }).eq("id", existingId).eq("status", "active");
 
-    const { data, error } = await supabase.from("game_sessions").insert({ city: "mumbai", business_type: "cafe", user_id: playerId, state: INITIAL_STATE, status: "active" }).select("id, state, user_id").single();
+    const { data, error } = await supabase.from("game_sessions").insert({ city: "mumbai", business_type: "cafe", user_id: playerId, player_id: playerId, state: INITIAL_STATE, status: "active" }).select("id, state, user_id").single();
     if (error || !data) throw error ?? new Error("Unable to create game session.");
     return responseWithSession({ state: data.state as GameState, sessionId: data.id }, data.id);
   } catch (error) {
