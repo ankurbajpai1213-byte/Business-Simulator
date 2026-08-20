@@ -1,13 +1,13 @@
 :root{--bg:#f6f4ef;--card:#fff;--line:#e5e0d7;--line-2:#d6cfc3;--ink:#1f1d1a;--muted:#6f6a62;--accent:#1f1d1a;--pos:#276b45;--neg:#a8452f;--tint:#f4f1eb}
 *{box-sizing:border-box}
-html,body{margin:0;padding:0;background:var(--bg);min-height:100%}
+html,body{margin:0;padding:0;background:var(--bg);height:100%;overflow:hidden;overscroll-behavior:none}
 body{color:var(--ink);font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;-webkit-font-smoothing:antialiased}
 button,input,textarea{font:inherit;color:inherit}
 button{cursor:pointer;-webkit-tap-highlight-color:transparent}
 
-.shell{min-height:100dvh;padding:16px 14px 28px}
-.wrap{width:min(680px,100%);margin:0 auto}
-.wrap.narrow{width:min(480px,100%);display:flex;min-height:calc(100dvh - 44px);align-items:center}
+.shell{height:100dvh;padding:10px 12px calc(10px + env(safe-area-inset-bottom));display:flex;flex-direction:column;overflow:hidden}
+.wrap{width:min(680px,100%);margin:0 auto;flex:1;min-height:0;display:flex;flex-direction:column;gap:8px}
+.wrap.narrow{width:min(480px,100%);display:flex;align-items:center;justify-content:center;flex:1;min-height:0;overflow-y:auto}
 .card{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:22px 20px}
 .card.tall{width:100%}
 .card+.card{margin-top:12px}
@@ -85,7 +85,7 @@ p.lead{font-size:16px;color:var(--ink);opacity:.82}
 @media(max-width:400px){.metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.metric strong{font-size:15px}}
 
 /* ---------- setup flow ---------- */
-.narrow-flow{width:min(520px,100%);margin:0 auto}
+.narrow-flow{width:min(520px,100%);margin:0 auto;flex:1;min-height:0;display:flex;flex-direction:column;gap:8px}
 .budget-bar{display:flex;align-items:center;gap:10px;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:10px 12px;position:sticky;top:8px;z-index:20;box-shadow:0 4px 16px rgba(31,29,26,.05)}
 .back-chip{border:1px solid var(--line-2);background:var(--card);width:34px;height:34px;border-radius:10px;font-size:16px;flex-shrink:0}
 .budget-nums{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;flex:1;min-width:0}
@@ -169,3 +169,72 @@ p.lead{font-size:16px;color:var(--ink);opacity:.82}
 .extremes span{display:block;font-size:11px;color:var(--muted);font-weight:600}
 .extremes strong{display:block;margin-top:3px;font-size:15px;font-weight:700}
 .extremes small{display:block;margin-top:2px;font-size:11px;color:var(--muted)}
+.slotline{font-size:13.5px;color:var(--muted);margin:2px 0 12px;line-height:1.5}
+.slotline strong{color:var(--ink)}
+
+
+/* ---------- fit to one screen ---------- */
+.card{display:flex;flex-direction:column;min-height:0}
+.flow-card{flex:1;min-height:0;overflow:hidden;padding:16px 15px}
+.flow-card h1{font-size:clamp(19px,5vw,25px);margin-bottom:6px}
+.flow-card p{font-size:13.5px;margin-bottom:10px}
+.flow-scroll{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;margin:0 -4px;padding:0 4px}
+.flow-card .primary{flex-shrink:0;margin-top:10px;padding:13px}
+
+/* game screen */
+.game-wrap{flex:1;min-height:0;display:flex;flex-direction:column;gap:8px}
+.bar{margin-bottom:0;flex-shrink:0}
+.cafe{font-size:16px}
+.scene{flex-shrink:0;margin-bottom:0;max-height:22dvh;object-fit:contain}
+.metrics{grid-template-columns:repeat(6,minmax(0,1fr));gap:6px;margin-bottom:0;flex-shrink:0}
+.metric{padding:7px 6px;border-radius:10px;text-align:center}
+.metric span{font-size:9px;letter-spacing:-.01em}
+.metric strong{font-size:12.5px;margin-top:2px}
+.metric .spark{display:none}
+.play-card{flex:1;min-height:0;padding:14px 13px;gap:0}
+.play-head{flex-shrink:0}
+.play-head h2{font-size:16px;margin-bottom:4px}
+.slotline{font-size:12px;margin:0 0 8px}
+.dec-grid{flex:1;min-height:0;overflow-y:auto;display:grid;grid-template-columns:1fr 1fr;gap:6px;align-content:start;margin:0 -3px;padding:0 3px}
+.choice-card.dec{flex-direction:column;align-items:flex-start;gap:4px;padding:9px 10px;border-radius:11px}
+.choice-card.dec .dec-icon{width:19px;height:19px}
+.choice-card.dec strong{font-size:12.5px;line-height:1.2}
+.choice-card.dec small{display:none}
+.choice-card.dec .dec-cost{font-size:10.5px;margin-top:auto}
+.choice-card.dec .choice-head{width:100%}
+.play-card .primary{flex-shrink:0;margin-top:9px;padding:13px}
+.event{flex-shrink:0;padding:13px}
+.event h2{font-size:15px}
+.event p{font-size:12.5px;margin-bottom:8px}
+.event .choice-card{padding:10px}
+.event .choice-card small{font-size:11.5px}
+
+/* setup: compact menu grid */
+.group-body{grid-template-columns:1fr 1fr;display:grid;gap:5px}
+.menu-item{flex-direction:column;align-items:flex-start;gap:3px;padding:8px 9px}
+.menu-item strong{font-size:12px;line-height:1.2}
+.menu-item small{font-size:10px;margin-top:1px}
+.menu-item .food-icon{width:20px;height:20px}
+.menu-item .tick{position:absolute;top:6px;right:8px}
+.menu-item{position:relative}
+.art-capital{width:88px;height:74px;margin:0 auto 8px}
+.art-icon{width:56px;height:42px}
+.plan-hero{margin:2px 0 8px}
+.plan-hero .art-icon{width:110px;height:82px}
+.plan-rows>div{padding:9px 12px}
+.plan-rows span,.plan-rows strong{font-size:12.5px}
+.budget-bar{flex-shrink:0;position:static;padding:8px 10px}
+.budget-nums strong{font-size:12.5px}
+.pips{margin:0;flex-shrink:0}
+.choice-card.row{padding:11px 12px}
+.choice-card.row strong{font-size:14px}
+.choice-card.row small{font-size:11.5px;margin-top:2px}
+.art-row{padding:10px}
+.art-row small{font-size:11.5px}
+.art-row em{font-size:11px;margin-top:5px}
+
+@media(min-height:820px){
+  .metric span{font-size:10px}.metric strong{font-size:14px}
+  .choice-card.dec strong{font-size:13.5px}
+  .scene{max-height:26dvh}
+}
