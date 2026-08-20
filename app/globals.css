@@ -272,3 +272,5 @@ p.lead{font-size:16px;color:var(--ink);opacity:.82}
 .interrupt{background:#fdefeb;border:1px solid #f0d3c9;border-radius:12px;padding:12px;margin-bottom:12px}
 .interrupt strong{display:block;font-size:13px;color:#8c3d2c;margin-bottom:3px}
 .interrupt span{display:block;font-size:13px;color:#8c3d2c;opacity:.9;line-height:1.5}
+.budget-nums.solo{grid-template-columns:1fr 1fr}
+.budget-hint strong{color:var(--muted);font-weight:600}
