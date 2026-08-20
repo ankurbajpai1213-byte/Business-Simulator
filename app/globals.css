@@ -269,3 +269,6 @@ p.lead{font-size:16px;color:var(--ink);opacity:.82}
 .metric::after{content:"";position:absolute;top:6px;right:6px;width:4px;height:4px;border-radius:50%;background:var(--line-2)}
 .detail-big{font-size:30px;font-weight:700;letter-spacing:-.02em;margin:2px 0 8px}
 .detail-what{font-size:14.5px;line-height:1.55;color:var(--ink);opacity:.85;margin-bottom:14px}
+.interrupt{background:#fdefeb;border:1px solid #f0d3c9;border-radius:12px;padding:12px;margin-bottom:12px}
+.interrupt strong{display:block;font-size:13px;color:#8c3d2c;margin-bottom:3px}
+.interrupt span{display:block;font-size:13px;color:#8c3d2c;opacity:.9;line-height:1.5}
