@@ -451,6 +451,12 @@ function DaySummary({ before, after, decision, picked, report, onClose }: { befo
   return (
     <Modal onClose={onClose}>
       <div className="eyebrow">{multi && report ? `Days ${report.fromDay}–${report.toDay}` : `Day ${before.day} done`}</div>
+      {report?.interrupted && (
+        <div className="interrupt">
+          <strong>Stopped on day {report.interrupted.day}</strong>
+          <span>{report.interrupted.message}</span>
+        </div>
+      )}
       <h2 className="verdict">{verdict}</h2>
 
       {multi && report ? (
