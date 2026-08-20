@@ -124,7 +124,7 @@ export function FoodIcon({ id }: { id: string }) {
 
 /* ---------- game screen art ---------- */
 
-export function CafeScene({ format, busy, raining, weather = "clear" }: { format: string; busy: number; raining: boolean; weather?: string }) {
+export function CafeScene({ format, busy, raining, weather = "clear", tone = "" }: { format: string; busy: number; raining: boolean; weather?: string; tone?: string }) {
   const wet = raining || weather === "rain";
   // busy: 0..1 share of capacity being used -> how many figures appear
   const people = Math.min(7, Math.round(busy * 7));
@@ -133,7 +133,7 @@ export function CafeScene({ format, busy, raining, weather = "clear" }: { format
     ? [[34,54],[58,54],[82,54],[34,70],[58,70],[82,70]]
     : [[40,58],[70,58],[40,72],[70,72]];
   return (
-    <svg className="scene" viewBox="0 0 160 96" role="img" aria-label={wet ? "Your cafe in the rain" : busy > .7 ? "Your cafe, busy" : busy > .3 ? "Your cafe, ticking along" : "Your cafe, quiet"}>
+    <svg className={`scene ${tone}`} viewBox="0 0 160 96" role="img" aria-label={wet ? "Your cafe in the rain" : busy > .7 ? "Your cafe, busy" : busy > .3 ? "Your cafe, ticking along" : "Your cafe, quiet"}>
       <rect x="0" y="0" width="160" height="96" className="sky" />
       {!wet && weather !== "cold" && <circle cx="136" cy="18" r="9" className={weather === "hot" ? "sun hot" : "sun"} />}
       {weather === "cold" && <g className="clouds"><ellipse cx="120" cy="16" rx="16" ry="7" /><ellipse cx="136" cy="19" rx="13" ry="6" /></g>}
