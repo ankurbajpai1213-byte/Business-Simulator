@@ -2,6 +2,7 @@
 
 import { useEffect, useState, type ReactNode } from "react";
 import Setup from "@/components/Setup";
+import { CafeScene, DecisionIcon, Spark } from "@/components/Art";
 import {
   FORMAT_OPTIONS, LOCATION_OPTIONS,
   formatINR, getAvailableDecisions,
@@ -171,6 +172,8 @@ export default function Home() {
     );
   }
 
+  const series = (k: "cash" | "customers" | "profit" | "reputation" | "inventory") =>
+    [...state.dayHistory.slice(-7).map(r => Number(k === "cash" ? r.cashAfter : k === "customers" ? r.customers : k === "profit" ? r.profit : k === "reputation" ? r.reputation : r.inventory))];
   const available = new Set(getAvailableDecisions(state));
   const location = LOCATION_OPTIONS.find(x => x.id === state.location);
   const format = FORMAT_OPTIONS.find(x => x.id === state.format);
@@ -189,12 +192,14 @@ export default function Home() {
           </div>
         </header>
 
+        <CafeScene format={state.format} busy={state.serviceCapacity > 0 ? state.customers / state.serviceCapacity : 0} raining={state.currentEvent?.id === "rain"} />
+
         <div className="metrics">
-          <Metric label="Cash" value={formatINR(state.cash)} />
-          <Metric label="Customers yesterday" value={state.customers.toLocaleString("en-IN")} />
-          <Metric label="Profit yesterday" value={formatINR(state.profit)} tone={state.profit >= 0 ? "pos" : "neg"} />
-          <Metric label="Reputation" value={`${Math.round(state.reputation)}/100`} />
-          <Metric label="Stock" value={`${Math.round(state.inventory)}/100`} tone={state.inventory < 20 ? "neg" : undefined} />
+          <Metric label="Cash" value={formatINR(state.cash)} series={series("cash")} />
+          <Metric label="Customers" value={state.customers.toLocaleString("en-IN")} series={series("customers")} />
+          <Metric label="Profit" value={formatINR(state.profit)} tone={state.profit >= 0 ? "pos" : "neg"} series={series("profit")} />
+          <Metric label="Reputation" value={`${Math.round(state.reputation)}/100`} series={series("reputation")} />
+          <Metric label="Stock" value={`${Math.round(state.inventory)}/100`} tone={state.inventory < 20 ? "neg" : undefined} series={series("inventory")} />
           <Metric label="Staff" value={`${state.staff}/100`} />
         </div>
 
@@ -222,11 +227,14 @@ export default function Home() {
             {DECISIONS.map(([id, title, desc, cost]) => {
               const ok = available.has(id);
               return (
-                <button key={id} className={`choice-card ${selected === id ? "selected" : ""} ${!ok ? "locked" : ""}`}
+                <button key={id} className={`choice-card dec ${selected === id ? "selected" : ""} ${!ok ? "locked" : ""}`}
                   onClick={() => ok && setSelected(id)} disabled={busy || !ok}>
-                  <div className="choice-head"><strong>{title}</strong>{selected === id && <span className="tick">Chosen</span>}</div>
-                  <small>{ok ? desc : "Not available right now"}</small>
-                  <em>{cost}</em>
+                  <DecisionIcon id={id} />
+                  <div className="dec-text">
+                    <div className="choice-head"><strong>{title}</strong>{selected === id && <span className="tick">✓</span>}</div>
+                    <small>{ok ? desc : "Not available right now"}</small>
+                  </div>
+                  <span className="dec-cost">{cost}</span>
                 </button>
               );
             })}
@@ -247,22 +255,36 @@ export default function Home() {
 
 function DaySummary({ before, after, decision, onClose }: { before: GameState; after: GameState; decision: Decision; onClose: () => void }) {
   const dCustomers = after.customers - before.customers;
-  const dProfit = after.profit - before.profit;
+  const dProfit = Math.round(after.profit - before.profit);
   const dRep = Math.round((after.reputation - before.reputation) * 10) / 10;
   const spent = Math.max(0, before.cash + after.profit - after.cash);
-  const line = (n: number) => (n > 0 ? `+${n.toLocaleString("en-IN")}` : n.toLocaleString("en-IN"));
+  const sign = (n: number) => (n > 0 ? `+${n.toLocaleString("en-IN")}` : n.toLocaleString("en-IN"));
+  const cls = (n: number) => (n > 0 ? "pos" : n < 0 ? "neg" : "");
+  const custSeries = [...after.dayHistory.slice(-7).map(r => r.customers)];
+
+  // One plain-English sentence tying the decision to the outcome.
+  const verdict = (() => {
+    const d = decisionName(decision).toLowerCase();
+    if (decision === "no-action") return dProfit >= 0 ? "You left things alone and the day paid for itself." : "You left things alone and the costs still came.";
+    if (spent > 0 && dCustomers > 0) return `You spent ${formatINR(spent)} to ${d}. ${dCustomers} more people came in than yesterday.`;
+    if (spent > 0 && dCustomers < 0) return `You spent ${formatINR(spent)} to ${d}, and ${Math.abs(dCustomers)} fewer people came in than yesterday.`;
+    if (spent > 0) return `You spent ${formatINR(spent)} to ${d}. Footfall held steady.`;
+    if (dCustomers !== 0) return `You chose to ${d}. ${Math.abs(dCustomers)} ${dCustomers > 0 ? "more" : "fewer"} people came in than yesterday.`;
+    return `You chose to ${d}.`;
+  })();
+
   return (
     <Modal onClose={onClose}>
-      <Eyebrow>Day {before.day} done</Eyebrow>
-      <h2>You chose to {decisionName(decision).toLowerCase()}.</h2>
-      <p className="lead">{after.lastDayMessage}</p>
+      <div className="eyebrow">Day {before.day} done</div>
+      <h2 className="verdict">{verdict}</h2>
       <div className="deltas">
-        <div><span>Customers</span><strong className={dCustomers > 0 ? "pos" : dCustomers < 0 ? "neg" : ""}>{line(dCustomers)}</strong><small>{after.customers} came in</small></div>
-        <div><span>Profit</span><strong className={dProfit > 0 ? "pos" : dProfit < 0 ? "neg" : ""}>{line(Math.round(dProfit))}</strong><small>{formatINR(after.profit)} today</small></div>
-        <div><span>Reputation</span><strong className={dRep > 0 ? "pos" : dRep < 0 ? "neg" : ""}>{line(dRep)}</strong><small>{Math.round(after.reputation)}/100 now</small></div>
-        <div><span>Cash</span><strong className={after.cash >= before.cash ? "pos" : "neg"}>{line(after.cash - before.cash)}</strong><small>{formatINR(after.cash)} left</small></div>
+        <div><span>Customers</span><strong className={cls(dCustomers)}>{sign(dCustomers)}</strong><small>{after.customers} today</small></div>
+        <div><span>Profit</span><strong className={cls(dProfit)}>{sign(dProfit)}</strong><small>{formatINR(after.profit)} today</small></div>
+        <div><span>Reputation</span><strong className={cls(dRep)}>{sign(dRep)}</strong><small>{Math.round(after.reputation)}/100 now</small></div>
+        <div><span>Cash</span><strong className={cls(after.cash - before.cash)}>{sign(after.cash - before.cash)}</strong><small>{formatINR(after.cash)} left</small></div>
       </div>
-      {spent > 0 && <p className="spendline">You spent {formatINR(spent)} today.</p>}
+      {custSeries.length > 2 && <div className="trend"><span>Customers, last {custSeries.length} days</span><Spark values={custSeries} /></div>}
+      {after.lastDayMessage && <p className="daymsg">{after.lastDayMessage}</p>}
       <button className="primary" onClick={onClose}>Next day</button>
     </Modal>
   );
@@ -318,8 +340,8 @@ function Screen({ children }: { children: ReactNode }) { return <main className=
 function Eyebrow({ children }: { children: ReactNode }) { return <div className="eyebrow">{children}</div>; }
 function H1({ children }: { children: ReactNode }) { return <h1>{children}</h1>; }
 function P({ children }: { children: ReactNode }) { return <p className="lead">{children}</p>; }
-function Metric({ label, value, tone }: { label: string; value: string; tone?: "pos" | "neg" }) {
-  return <div className="metric"><span>{label}</span><strong className={tone ?? ""}>{value}</strong></div>;
+function Metric({ label, value, tone, series }: { label: string; value: string; tone?: "pos" | "neg"; series?: number[] }) {
+  return <div className="metric"><span>{label}</span><strong className={tone ?? ""}>{value}</strong>{series && series.length > 1 && <Spark values={series} />}</div>;
 }
 function Modal({ children, onClose }: { children: ReactNode; onClose: () => void }) {
   return <div className="backdrop" onMouseDown={e => e.target === e.currentTarget && onClose()}>
