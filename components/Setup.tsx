@@ -47,10 +47,16 @@ export default function Setup({ cafeName, onOpen, onBack, busy, error }: {
       <div className="wrap narrow-flow">
         <div className="budget-bar">
           <button className="back-chip" onClick={back} aria-label="Back">←</button>
-          <div className="budget-nums">
+          <div className={`budget-nums ${idx === 0 ? "solo" : ""}`}>
             <div><span>Capital</span><strong>{formatINR(capital)}</strong></div>
-            <div><span>Spent</span><strong>{formatINR(setupCost)}</strong></div>
-            <div><span>Left</span><strong className={remaining < 0 ? "neg" : "pos"}>{formatINR(remaining)}</strong></div>
+            {idx === 1 && (
+              <div><span>Rent</span><strong>{formatINR(LOCATION_OPTIONS.find(x => x.id === location)?.rentMonthly ?? 0)}/mo</strong></div>
+            )}
+            {idx >= 2 && <>
+              <div><span>Spent</span><strong>{formatINR(setupCost)}</strong></div>
+              <div><span>Left</span><strong className={remaining < 0 ? "neg" : "pos"}>{formatINR(remaining)}</strong></div>
+            </>}
+            {idx === 0 && <div className="budget-hint"><span>To spend</span><strong>Nothing yet</strong></div>}
           </div>
         </div>
         <div className="pips">{STEPS.map((s, i) => <i key={s} className={i <= idx ? "on" : ""} />)}</div>
