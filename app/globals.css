@@ -339,3 +339,40 @@ p.lead{font-size:16px;color:var(--ink);opacity:.82}
 .backdrop{animation:fadein .2s ease}
 @keyframes fadein{from{opacity:0}to{opacity:1}}
 @media(prefers-reduced-motion:reduce){.pop,.burst i,.sheet,.backdrop,.choice-card.selected{animation:none}}
+
+/* ---------- journey bar, milestones, loader ---------- */
+.journey{flex:0 0 auto;min-height:0;overflow:visible;margin-top:9px;padding:10px 11px;background:var(--tint);border:1px solid var(--line-2);border-radius:12px;display:flex;flex-direction:column;gap:5px;width:100%;text-align:left}
+.journey:active{transform:scale(.985)}
+.journey-top strong{font-size:12px;font-weight:700}
+
+.timeline{overflow-x:auto;-webkit-overflow-scrolling:touch;margin:14px -20px 4px;padding:0 20px 6px}
+.timeline-track{display:flex;gap:0;align-items:flex-start;min-width:min-content}
+.tl-item{position:relative;flex:0 0 92px;text-align:center;padding-top:22px}
+.tl-item::before{content:"";position:absolute;top:9px;left:0;right:0;height:2px;background:var(--line-2)}
+.tl-item:first-child::before{left:50%}.tl-item:last-child::before{right:50%}
+.tl-dot{position:absolute;top:0;left:50%;transform:translateX(-50%);width:20px;height:20px;border-radius:50%;background:var(--card);border:2px solid var(--line-2);display:grid;place-items:center;font-size:10px;font-style:normal;font-weight:800;color:#fff}
+.tl-item.done .tl-dot{background:var(--accent);border-color:var(--accent)}
+.tl-item.done::before{background:var(--accent)}
+.tl-item span{display:block;font-size:10.5px;line-height:1.3;color:var(--muted);padding:0 4px}
+.tl-item.done span{color:var(--ink);font-weight:600}
+
+.brew-backdrop{align-items:center}
+.brewing{display:flex;flex-direction:column;align-items:center;gap:10px;background:var(--card);border-radius:20px;padding:26px 30px;box-shadow:0 18px 50px rgba(31,29,26,.18)}
+.brew-art{width:132px;height:114px}
+.brew-metal{fill:#b9b0a2}.brew-spout,.brew-handle{fill:none;stroke:#b9b0a2;stroke-width:5;stroke-linecap:round}
+.kettle{transform-origin:30px 50px;animation:tip 2.4s ease-in-out infinite}
+@keyframes tip{0%,100%{transform:rotate(0deg)}30%,70%{transform:rotate(-13deg)}}
+.pour{fill:none;stroke:#8a5a33;stroke-width:4;stroke-linecap:round;stroke-dasharray:5 7;animation:pouring .5s linear infinite}
+@keyframes pouring{to{stroke-dashoffset:-12}}
+.cup-glass{fill:#eef1f2;opacity:.8}.cup-outline{fill:none;stroke:#b7b0a4;stroke-width:2.5}
+.cup-fill{fill:#8a5a33;animation:fillup 2.4s ease-in-out infinite}
+@keyframes fillup{0%{transform:translateY(42px)}55%,100%{transform:translateY(4px)}}
+.steam path{fill:none;stroke:#c9c1b5;stroke-width:2.5;stroke-linecap:round;opacity:0;animation:steam 2.4s ease-out infinite}
+.steam path:last-child{animation-delay:.3s}
+@keyframes steam{0%,50%{opacity:0;transform:translateY(4px)}75%{opacity:.9}100%{opacity:0;transform:translateY(-8px)}}
+.brew-label{font-size:13.5px;color:var(--muted);font-weight:600}
+@media(prefers-reduced-motion:reduce){.kettle,.pour,.cup-fill,.steam path{animation:none}}
+.sun.hot{fill:#f2c16b}
+.clouds ellipse{fill:#dfe5e7}
+.bunting path{stroke:#c9beb0;stroke-width:1;fill:none}
+.bunting .flagA{fill:#d9b779;stroke:none}.bunting .flagB{fill:#c48f7a;stroke:none}
