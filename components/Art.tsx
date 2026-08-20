@@ -163,6 +163,8 @@ const D_ICONS: Record<string, ReactNode> = {
   marketing: <><path d="M4 10 L14 5 v14 L4 14 z" className="fi-body" /><path d="M14 8 a4 4 0 0 1 0 8" className="fi-line" /></>,
   quality: <path d="M12 3 l2.6 5.6 6 .8 -4.4 4.2 1.1 6.1 -5.3 -2.9 -5.3 2.9 1.1 -6.1 -4.4 -4.2 6 -.8 z" className="fi-body" />,
   inventory: <><path d="M4 8 h16 v12 h-16 z" className="fi-body" /><path d="M4 8 l3 -4 h10 l3 4" className="fi-line" /><path d="M12 8 v12" className="fi-line" /></>,
+  "inventory-2": <><path d="M2 10 h9 v10 h-9 z" className="fi-body" /><path d="M13 10 h9 v10 h-9 z" className="fi-body" /><path d="M2 10 l2 -3 h5 l2 3 M13 10 l2 -3 h5 l2 3" className="fi-line" /></>,
+  "inventory-3": <><path d="M1 12 h7 v8 h-7 z" className="fi-body" /><path d="M8.5 12 h7 v8 h-7 z" className="fi-body" /><path d="M16 12 h7 v8 h-7 z" className="fi-body" /><path d="M8.5 12 l1.5 -3 h4 l1.5 3" className="fi-line" /></>,
   hire: <><circle cx="9" cy="8" r="3.4" className="fi-body" /><path d="M3 20 q6 -7 12 0 z" className="fi-body" /><path d="M18 6 v7 M14.5 9.5 h7" className="fi-line" /></>,
   "raise-price": <><path d="M12 20 V5 M6 11 l6 -6 6 6" className="fi-line" /></>,
   "lower-price": <><path d="M12 4 v15 M6 13 l6 6 6 -6" className="fi-line" /></>,
