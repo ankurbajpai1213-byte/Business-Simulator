@@ -26,11 +26,12 @@ export const MENU_ITEMS: MenuItem[] = [
   { id: "paneer-main", name: "Paneer / Chicken Main", setupCost: 150000, weeklyCost: 16000, ticketImpact: 160, demandImpact: 9, infrastructure: "kitchen" },
   { id: "dessert", name: "Desserts", setupCost: 80000, weeklyCost: 9000, ticketImpact: 80, demandImpact: 6, infrastructure: "kitchen" },
 ];
-export type GameEventId = "bad-review" | "supplier-increase" | "staff-absence" | "rain" | "competitor-promotion" | "local-event" | "equipment-issue" | "viral-mention" | "bulk-order" | "stock-shortage";
+export type GameEventId = "bad-review" | "supplier-increase" | "staff-absence" | "rain" | "competitor-promotion" | "local-event" | "equipment-issue" | "viral-mention" | "bulk-order" | "stock-shortage"
+  | "health-inspection" | "rent-hike" | "delivery-app" | "monsoon-flood" | "power-cut" | "staff-poached" | "food-blogger" | "licence-renewal" | "construction" | "rival-closes";
 export type GameEvent = { id: GameEventId; title: string; narrative: string; severity: 1 | 2 | 3; options: Array<{ id: string; title: string; description: string; cost: number }> };
 export type Decision = "raise-price" | "lower-price" | "marketing" | "hire" | "quality" | "inventory" | "inventory-2" | "inventory-3" | "no-action" | "supply-contract" | "hire-manager" | "extend-hours" | "loyalty-programme";
 export type DayRecord = { day: number; decision: Decision; eventId: GameEventId | null; eventOption: string | null; cashBefore: number; cashAfter: number; revenue: number; profit: number; customers: number; reputation: number; priceIndex: number; inventory: number; wastage: number };
-export type GameState = { version: 4; setupComplete: boolean; businessName: string; day: number; cash: number; revenue: number; profit: number; customers: number; totalCustomers: number; cumulativeRevenue: number; cumulativeProfit: number; reputation: number; priceIndex: number; marketing: number; staff: number; quality: number; inventory: number; wastageToday: number; weatherToday?: "clear" | "hot" | "rain" | "festival" | "cold"; location: Location; capital: number; format: BusinessFormat; menu: MenuItemId[]; setupCost: number; serviceCapacity: number; currentEvent: GameEvent | null; eventHistory: string[]; dayHistory: DayRecord[]; consecutivePriceRaises: number; priceChangesLast7: number; profitableDays: number; lossDays: number; profitStreak: number; lossStreak: number; supplierCostMultiplier: number; supplyContract: boolean; manager: boolean; extendedHours: boolean; loyalty: boolean; lastEventDay: number; milestones: string[]; lastDayMessage: string; seed: number };
+export type GameState = { version: 4; setupComplete: boolean; businessName: string; day: number; cash: number; revenue: number; profit: number; customers: number; totalCustomers: number; cumulativeRevenue: number; cumulativeProfit: number; reputation: number; priceIndex: number; marketing: number; staff: number; quality: number; inventory: number; wastageToday: number; weatherToday?: "clear" | "hot" | "rain" | "festival" | "cold"; location: Location; capital: number; format: BusinessFormat; menu: MenuItemId[]; setupCost: number; serviceCapacity: number; currentEvent: GameEvent | null; eventHistory: string[]; dayHistory: DayRecord[]; consecutivePriceRaises: number; priceChangesLast7: number; profitableDays: number; lossDays: number; profitStreak: number; lossStreak: number; supplierCostMultiplier: number; supplyContract: boolean; manager: boolean; extendedHours: boolean; loyalty: boolean; lastEventDay: number; milestones: string[]; lastDayMessage: string; seed: number; daysSinceStockout: number; lowCashSeen: boolean; eventsHandled: number; bestCapacity: number; profitableMonths: number; monthProfit: number; monthWages: number; monthRevenue: number; customersBeforeRaise: number; raiseTestDay: number };
 export const CAPITAL_OPTIONS = [500000, 1000000, 2000000, 3500000, 5000000];
 export const LOCATION_OPTIONS: Array<{ id: Location; name: string; rentMonthly: number; demand: number; description: string }> = [
   { id: "high-footfall", name: "High-footfall", rentMonthly: 100000, demand: 1.2, description: "Higher demand and visibility, but the highest volume pressure." },
@@ -42,10 +43,10 @@ export const FORMAT_OPTIONS: Array<{ id: BusinessFormat; name: string; cost: num
   { id: "small-cafe", name: "Small café", cost: 250000, staff: 65, capacity: 200, description: "Seating plus beverage equipment and a broader café menu." },
   { id: "full-cafe", name: "Full-service restaurant", cost: 450000, staff: 72, capacity: 300, description: "Full seating and kitchen infrastructure for a broad food menu." },
 ];
-export const INITIAL_STATE: GameState = { version: 4, setupComplete: false, businessName: "", day: 1, cash: 0, revenue: 0, profit: 0, customers: 0, totalCustomers: 0, cumulativeRevenue: 0, cumulativeProfit: 0, reputation: 50, priceIndex: 100, marketing: 25, staff: 0, quality: 65, inventory: 75, wastageToday: 0, location: "high-footfall", capital: 0, format: "small-cafe", menu: [], setupCost: 0, serviceCapacity: 0, currentEvent: null, eventHistory: [], dayHistory: [], consecutivePriceRaises: 0, priceChangesLast7: 0, profitableDays: 0, lossDays: 0, profitStreak: 0, lossStreak: 0, supplierCostMultiplier: 1, supplyContract: false, manager: false, extendedHours: false, loyalty: false, lastEventDay: 0, milestones: [], lastDayMessage: "", seed: 0 };
+export const INITIAL_STATE: GameState = { version: 4, setupComplete: false, businessName: "", day: 1, cash: 0, revenue: 0, profit: 0, customers: 0, totalCustomers: 0, cumulativeRevenue: 0, cumulativeProfit: 0, reputation: 50, priceIndex: 100, marketing: 25, staff: 0, quality: 65, inventory: 75, wastageToday: 0, location: "high-footfall", capital: 0, format: "small-cafe", menu: [], setupCost: 0, serviceCapacity: 0, currentEvent: null, eventHistory: [], dayHistory: [], consecutivePriceRaises: 0, priceChangesLast7: 0, profitableDays: 0, lossDays: 0, profitStreak: 0, lossStreak: 0, supplierCostMultiplier: 1, supplyContract: false, manager: false, extendedHours: false, loyalty: false, lastEventDay: 0, milestones: [], lastDayMessage: "", seed: 0, daysSinceStockout: 0, lowCashSeen: false, eventsHandled: 0, bestCapacity: 0, profitableMonths: 0, monthProfit: 0, monthWages: 0, monthRevenue: 0, customersBeforeRaise: 0, raiseTestDay: 0 };
 export function upgradeLegacyState(raw: Partial<GameState>): GameState {
   if (raw.version === 4 && typeof raw.wastageToday === "number" && typeof raw.seed === "number") return raw as GameState;
-  return { ...INITIAL_STATE, ...raw, version: 4, setupComplete: raw.setupComplete ?? true, businessName: raw.businessName ?? "", capital: Number(raw.capital ?? raw.cash ?? 500000), format: raw.format ?? "small-cafe", menu: raw.menu?.length ? raw.menu : ["filter-coffee", "instant-coffee", "masala-chai", "bun-maska", "vada-pav", "veg-sandwich"], setupCost: Number(raw.setupCost ?? 0), serviceCapacity: Number(raw.serviceCapacity ?? 200), currentEvent: raw.currentEvent ?? null, eventHistory: raw.eventHistory ?? [], dayHistory: (raw.dayHistory ?? []).map(record => ({ ...record, inventory: Number((record as Partial<DayRecord>).inventory ?? 0), wastage: Number((record as Partial<DayRecord>).wastage ?? 0) })), totalCustomers: Number(raw.totalCustomers ?? raw.customers ?? 0), cumulativeRevenue: Number(raw.cumulativeRevenue ?? raw.revenue ?? 0), cumulativeProfit: Number(raw.cumulativeProfit ?? raw.profit ?? 0), inventory: Math.max(0, Math.min(100, Number(raw.inventory ?? 75))), wastageToday: Number(raw.wastageToday ?? 0), consecutivePriceRaises: Number(raw.consecutivePriceRaises ?? 0), priceChangesLast7: Number(raw.priceChangesLast7 ?? 0), profitableDays: Number(raw.profitableDays ?? 0), lossDays: Number(raw.lossDays ?? 0), profitStreak: Number(raw.profitStreak ?? 0), lossStreak: Number(raw.lossStreak ?? 0), supplierCostMultiplier: Number(raw.supplierCostMultiplier ?? 1), supplyContract: Boolean(raw.supplyContract), manager: Boolean(raw.manager), extendedHours: Boolean(raw.extendedHours), loyalty: Boolean(raw.loyalty), lastEventDay: Number(raw.lastEventDay ?? 0), milestones: raw.milestones ?? [], lastDayMessage: raw.lastDayMessage ?? "", seed: Number(raw.seed ?? Math.floor(Math.random() * 2147483647)) };
+  return { ...INITIAL_STATE, ...raw, version: 4, setupComplete: raw.setupComplete ?? true, businessName: raw.businessName ?? "", capital: Number(raw.capital ?? raw.cash ?? 500000), format: raw.format ?? "small-cafe", menu: raw.menu?.length ? raw.menu : ["filter-coffee", "instant-coffee", "masala-chai", "bun-maska", "vada-pav", "veg-sandwich"], setupCost: Number(raw.setupCost ?? 0), serviceCapacity: Number(raw.serviceCapacity ?? 200), currentEvent: raw.currentEvent ?? null, eventHistory: raw.eventHistory ?? [], dayHistory: (raw.dayHistory ?? []).map(record => ({ ...record, inventory: Number((record as Partial<DayRecord>).inventory ?? 0), wastage: Number((record as Partial<DayRecord>).wastage ?? 0) })), totalCustomers: Number(raw.totalCustomers ?? raw.customers ?? 0), cumulativeRevenue: Number(raw.cumulativeRevenue ?? raw.revenue ?? 0), cumulativeProfit: Number(raw.cumulativeProfit ?? raw.profit ?? 0), inventory: Math.max(0, Math.min(100, Number(raw.inventory ?? 75))), wastageToday: Number(raw.wastageToday ?? 0), consecutivePriceRaises: Number(raw.consecutivePriceRaises ?? 0), priceChangesLast7: Number(raw.priceChangesLast7 ?? 0), profitableDays: Number(raw.profitableDays ?? 0), lossDays: Number(raw.lossDays ?? 0), profitStreak: Number(raw.profitStreak ?? 0), lossStreak: Number(raw.lossStreak ?? 0), supplierCostMultiplier: Number(raw.supplierCostMultiplier ?? 1), supplyContract: Boolean(raw.supplyContract), manager: Boolean(raw.manager), extendedHours: Boolean(raw.extendedHours), loyalty: Boolean(raw.loyalty), lastEventDay: Number(raw.lastEventDay ?? 0), milestones: raw.milestones ?? [], lastDayMessage: raw.lastDayMessage ?? "", seed: Number(raw.seed ?? Math.floor(Math.random() * 2147483647)), daysSinceStockout: Number(raw.daysSinceStockout ?? 0), lowCashSeen: Boolean(raw.lowCashSeen), eventsHandled: Number(raw.eventsHandled ?? 0), bestCapacity: Number(raw.bestCapacity ?? raw.serviceCapacity ?? 0), profitableMonths: Number(raw.profitableMonths ?? 0), monthProfit: Number(raw.monthProfit ?? 0), monthWages: Number(raw.monthWages ?? 0), monthRevenue: Number(raw.monthRevenue ?? 0), customersBeforeRaise: Number(raw.customersBeforeRaise ?? 0), raiseTestDay: Number(raw.raiseTestDay ?? 0) };
 }
 export function formatINR(value: number): string { return new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(value); }
 export function calculateSetup(capital: number, location: Location, format: BusinessFormat, menu: MenuItemId[]) {
@@ -97,7 +98,43 @@ export function weatherFor(seed: number, day: number): Weather {
 function seededNoise(seed: number, day: number): number { let x = (seed ^ Math.imul(day + 0x9e3779b9, 0x85ebca6b)) >>> 0; x ^= x >>> 16; x = Math.imul(x, 0x7feb352d) >>> 0; x ^= x >>> 15; x = Math.imul(x, 0x846ca68b) >>> 0; x ^= x >>> 16; return 0.85 + (x / 4294967296) * 0.30; }
 function priceDemandFactor(state: GameState): number { const tolerance = state.location === "premium" ? 0.10 : state.location === "high-footfall" ? 0.03 : 0; const baseIncrease = Math.max(0, state.priceIndex - 100) / 100; let elasticity = 1 - Math.min(0.52, baseIncrease * (1.20 - tolerance)); if (state.consecutivePriceRaises >= 2) elasticity -= Math.min(0.20, (state.consecutivePriceRaises - 1) * 0.065); if (state.consecutivePriceRaises >= 4) elasticity -= 0.07; return Math.max(0.28, elasticity); }
 function serviceFactor(state: GameState): number { const targetStaff = state.format === "takeaway" ? 55 : state.format === "small-cafe" ? 65 : 72; return Math.min(1.08, 0.84 + state.staff / Math.max(1, targetStaff) * 0.16); }
-function addMilestones(state: GameState, previousProfit: number): string[] { const unlocked = new Set(state.milestones); const add = (id: string, condition: boolean) => { if (condition) unlocked.add(id); }; add("first-sale", state.cumulativeRevenue > 0); add("first-customer", state.totalCustomers >= 1); add("100-customers", state.totalCustomers >= 100); add("500-customers", state.totalCustomers >= 500); add("1000-customers", state.totalCustomers >= 1000); add("revenue-1l", state.cumulativeRevenue >= 100000); add("revenue-5l", state.cumulativeRevenue >= 500000); add("revenue-10l", state.cumulativeRevenue >= 1000000); add("first-profit", state.profitableDays >= 1); add("profit-streak-3", state.profitStreak >= 3); add("profit-streak-5", state.profitStreak >= 5); add("crisis-survived", state.eventHistory.length >= 1 && state.cash > 0); add("bounce-back", previousProfit < 0 && state.profit > 0); add("reputation-60", state.reputation >= 60); add("reputation-80", state.reputation >= 80); add("day-5", state.day > 5); add("day-10", state.day > 10); add("day-30", state.day > 30); return [...unlocked]; }
+function addMilestones(state: GameState, previousProfit: number): string[] {
+  const unlocked = new Set(state.milestones);
+  const add = (id: string, condition: boolean) => { if (condition) unlocked.add(id); };
+  const daysOpen = Math.max(1, state.day - 1);
+
+  // Survived — honest time served.
+  add("open-business", true);
+  add("week-one", state.day > 7);
+  add("month-one", state.day > 30);
+  add("quarter-one", state.day > 90);
+  add("half-year", state.day > 182);
+  add("full-year", state.day > 365);
+
+  // Judgement — earned by how you played, not how long.
+  add("steady-hand", state.daysSinceStockout >= 30);
+  add("fair-price", state.raiseTestDay > 0 && state.day - state.raiseTestDay >= 7 && state.customers >= state.customersBeforeRaise * 0.95);
+  add("bounced-back", state.lowCashSeen && state.profit > 0 && state.cash > Math.abs(state.profit || 1) * 60);
+  add("word-gets-around", state.reputation >= 80 && state.quality >= 70);
+  add("read-the-room", state.eventsHandled >= 3 && state.lossStreak === 0);
+  add("lean-operator", state.monthRevenue > 0 && state.monthProfit > 0 && state.monthWages < state.monthRevenue * 0.25);
+  add("full-house", state.serviceCapacity > 0 && state.customers >= state.serviceCapacity * 0.95);
+
+  // Built something — real ambition.
+  add("first-profit", state.profitableDays >= 1);
+  add("profitable-month", state.profitableMonths >= 1);
+  add("profit-5l", state.cumulativeProfit >= 500000);
+  add("profit-20l", state.cumulativeProfit >= 2000000);
+  add("served-5000", state.totalCustomers >= 5000);
+  add("supply-secured", state.supplyContract);
+  add("manager-hired", state.manager);
+  add("doubled-capacity", state.bestCapacity > 0 && state.serviceCapacity >= state.bestCapacity * 2);
+  add("bounce-back", previousProfit < 0 && state.profit > 0);
+  add("crisis-survived", state.eventHistory.length >= 1 && state.cash > 0);
+  void daysOpen;
+  return [...unlocked];
+}
+
 function dayMessage(state: GameState, decision: Decision, previous: GameState): string { const profitDelta = state.profit - previous.profit; if (state.wastageToday > 2000) return "You're carrying too much stock. 📦 Some of it went to waste today — cash can't earn anything while it's sitting on the shelf."; if (state.inventory < 20) return "Careful — the shelves are getting bare. One more busy day could mean lost sales."; if (state.profitStreak >= 3) return "Now we're cooking. 🔥 Three good days in a row. Enjoy the win — tomorrow still has a vote."; if (state.profit < 0 && state.lossStreak >= 2) return "Oof. The business is feeling it. Take a breath — one smart move can change the direction."; if (decision === "raise-price" && state.consecutivePriceRaises >= 3) return "Your customers noticed. 💸 The extra margin came with a cost. Maybe give the prices a little breathing room."; if (decision === "lower-price" && state.profit > previous.profit) return "A little breathing room helped. Lower prices can recover demand when you've pushed too far."; if (decision === "raise-price" && state.profit > previous.profit) return "That price move paid off. ☕ Just remember: what works today may not work three days in a row."; if (decision === "no-action" && state.profit > 0) return "A steady day. 📈 Sometimes the smartest move is not to fix what isn't broken."; if (decision === "no-action" && state.profit < 0) return "You held steady today. That's useful information — now watch what the business is telling you."; if (state.profit > 0 && profitDelta > 0) return "Today paid off. 📈 Your business moved in the right direction. Enjoy this one."; if (state.profit > 0) return "A solid day. Nothing flashy — just a business doing its job."; if (state.profit < 0 && previous.profit >= 0) return "Careful. Costs are catching up. A rough day is information, not a verdict."; if (state.reputation > previous.reputation) return "People seem to like what you're doing. ⭐ Keep that feeling going."; if (state.reputation < previous.reputation) return "The customers have opinions. 😬 Watch what changed today before making the next move."; return "Another day in the books. Sometimes boring is profitable. Tomorrow, we try again."; }
 export function advanceDay(state: GameState, decision: Decision = "marketing", turnSpend = 0, rainToday = false, resolvedEventId: GameEventId | null = null, resolvedEventOption: string | null = null): GameState {
   const location = LOCATION_OPTIONS.find(x => x.id === state.location)!; const items = state.menu.map(id => MENU_ITEMS.find(x => x.id === id)).filter(Boolean) as MenuItem[]; const menu = menuStats(items); const priceFactor = priceDemandFactor(state); const qualityFactor = 0.68 + state.quality / 230; const reputationFactor = 0.55 + state.reputation / 200 + (state.loyalty ? 0.06 : 0); const marketingFactor = 1 + state.marketing / 360;
@@ -130,28 +167,177 @@ export function advanceDay(state: GameState, decision: Decision = "marketing", t
   // but it only covers routine demand and never fully fills the store.
   const restocked = state.supplyContract ? Math.round(stockUsed * 0.92) : 0;
   const nextInventory = Math.max(0, Math.min(state.supplyContract ? 78 : 100, state.inventory - stockUsed + restocked));
-  const next: GameState = { ...state, day: state.day + 1, cash: Math.round(state.cash + profit + turnSpend), revenue, profit, customers, totalCustomers: state.totalCustomers + customers, cumulativeRevenue: state.cumulativeRevenue + revenue, cumulativeProfit: state.cumulativeProfit + profit, reputation: Math.max(0, Math.min(100, Math.round((state.reputation + reputationChange) * 10) / 10)), inventory: nextInventory, wastageToday: wastage, marketing: Math.max(25, state.marketing - 3), profitableDays: state.profitableDays + (profit > 0 ? 1 : 0), lossDays: state.lossDays + (profit < 0 ? 1 : 0), profitStreak: profit > 0 ? state.profitStreak + 1 : 0, lossStreak: profit < 0 ? state.lossStreak + 1 : 0, priceChangesLast7: state.day % 7 === 0 ? 0 : state.priceChangesLast7, lastDayMessage: "", weatherToday: weather.id };
+  const stockoutToday = state.inventory - stockUsed < 0 || customers === 0;
+  const monthBoundary = state.day % 30 === 0;
+  const wagesToday = payroll;
+  const next: GameState = { ...state, day: state.day + 1,
+    daysSinceStockout: stockoutToday ? 0 : state.daysSinceStockout + 1,
+    lowCashSeen: state.lowCashSeen || (profit < 0 && state.cash < Math.abs(profit) * 10),
+    bestCapacity: Math.max(state.bestCapacity || state.serviceCapacity, state.serviceCapacity),
+    monthProfit: monthBoundary ? 0 : state.monthProfit + profit,
+    monthRevenue: monthBoundary ? 0 : state.monthRevenue + revenue,
+    monthWages: monthBoundary ? 0 : state.monthWages + wagesToday,
+    profitableMonths: monthBoundary && state.monthProfit + profit > 0 ? state.profitableMonths + 1 : state.profitableMonths,
+    customersBeforeRaise: decision === "raise-price" ? state.customers : state.customersBeforeRaise,
+    raiseTestDay: decision === "raise-price" ? state.day : state.raiseTestDay, cash: Math.round(state.cash + profit + turnSpend), revenue, profit, customers, totalCustomers: state.totalCustomers + customers, cumulativeRevenue: state.cumulativeRevenue + revenue, cumulativeProfit: state.cumulativeProfit + profit, reputation: Math.max(0, Math.min(100, Math.round((state.reputation + reputationChange) * 10) / 10)), inventory: nextInventory, wastageToday: wastage, marketing: Math.max(25, state.marketing - 3), profitableDays: state.profitableDays + (profit > 0 ? 1 : 0), lossDays: state.lossDays + (profit < 0 ? 1 : 0), profitStreak: profit > 0 ? state.profitStreak + 1 : 0, lossStreak: profit < 0 ? state.lossStreak + 1 : 0, priceChangesLast7: state.day % 7 === 0 ? 0 : state.priceChangesLast7, lastDayMessage: "", weatherToday: weather.id };
   next.lastDayMessage = dayMessage(next, decision, state); next.milestones = addMilestones(next, previousProfit); next.dayHistory = [...state.dayHistory, { day: state.day, decision, eventId: resolvedEventId, eventOption: resolvedEventOption, cashBefore: state.cash + turnSpend, cashAfter: next.cash, revenue, profit, customers, reputation: next.reputation, priceIndex: next.priceIndex, inventory: next.inventory, wastage }]; return next;
 }
 function makeEvent(id: GameEventId, title: string, narrative: string, severity: 1 | 2 | 3, options: GameEvent["options"]): GameEvent { return { id, title, narrative, severity, options }; }
-export function generateEvent(state: GameState): GameEvent | null {
-  if (state.day < 3 || state.currentEvent || state.day - state.lastEventDay < 2) return null; const candidates: GameEvent[] = [];
-  if (state.inventory < 35) candidates.push(makeEvent("stock-shortage", "Stock is running low", "A few popular items may run out before the day is over. You can protect sales now or conserve cash.", 1, [{ id: "emergency-stock", title: "Emergency restock", description: "Pay more for a quick top-up.", cost: 15000 }, { id: "conserve-stock", title: "Conserve stock", description: "Avoid spending, but accept some lost sales.", cost: 0 }]));
-  if (state.consecutivePriceRaises >= 2) candidates.push(makeEvent("bad-review", "Customers are noticing the prices", "A regular has posted that the café is getting expensive. How you respond will shape the next few days.", 2, [{ id: "hold-price", title: "Hold prices steady", description: "Give customers a reason to stay while demand settles.", cost: 0 }, { id: "add-value", title: "Add a small value offer", description: "Spend on a simple combo or add-on rather than cutting the headline price.", cost: 12000 }, { id: "ignore-review", title: "Ignore it", description: "Protect margin today and accept the risk.", cost: 0 }]));
-  if (state.day % 5 === 0) candidates.push(makeEvent("supplier-increase", "Supplier prices just went up", "Your primary supplier has announced an 18% increase on key ingredients.", 1, [{ id: "accept-supplier", title: "Accept the increase", description: "No disruption, but margins will fall.", cost: 0 }, { id: "switch-supplier", title: "Switch supplier", description: "Pay now to protect margins later.", cost: 12000 }]));
-  if (state.day % 4 === 0) candidates.push(makeEvent("rain", "Rain is slowing the street down", "Footfall is expected to be softer today. You can spend to pull customers in or ride it out.", 1, [{ id: "delivery-push", title: "Push a local promotion", description: "Spend on a short promotion to recover some demand.", cost: 9000 }, { id: "ride-it-out", title: "Ride it out", description: "Save cash and accept a quieter day.", cost: 0 }]));
-  if (state.day % 6 === 0) candidates.push(makeEvent("competitor-promotion", "A competitor is running a big offer", "The café down the road is attracting attention with an aggressive promotion.", 2, [{ id: "match-offer", title: "Match the offer", description: "Defend demand, but sacrifice some margin.", cost: 14000 }, { id: "differentiate", title: "Lean into quality", description: "Spend on quality and let your reputation do the work.", cost: 12000 }, { id: "ignore-competitor", title: "Ignore it", description: "Keep your strategy and avoid a price war.", cost: 0 }]));
-  if (state.day % 9 === 0) candidates.push(makeEvent("local-event", "A local event is bringing people nearby", "A nearby event could create a rush of customers. Are you ready for it?", 1, [{ id: "prepare-staff", title: "Prepare extra staff", description: "Pay for temporary help and capture more of the rush.", cost: 16000 }, { id: "take-the-risk", title: "Take your chances", description: "No cost, but you may struggle with the rush.", cost: 0 }]));
-  if (state.day % 11 === 0) candidates.push(makeEvent("equipment-issue", "A piece of equipment is acting up", "One of your key pieces of equipment needs attention before it becomes a bigger problem.", 2, [{ id: "repair-now", title: "Repair it now", description: "Pay now and avoid disruption.", cost: 18000 }, { id: "delay-repair", title: "Delay the repair", description: "Save cash today and accept the risk of downtime.", cost: 0 }]));
-  if (state.reputation >= 70 && state.day % 8 === 0) candidates.push(makeEvent("viral-mention", "Someone is talking about your business", "A local food page has mentioned your café. This could bring new customers.", 2, [{ id: "amplify", title: "Amplify the mention", description: "Spend on a small boost while the attention is fresh.", cost: 10000 }, { id: "let-it-spread", title: "Let it spread", description: "No spend. See whether word of mouth carries it.", cost: 0 }]));
-  if (state.day % 10 === 0) candidates.push(makeEvent("bulk-order", "A large order opportunity", "A nearby office wants a bulk order. It could be useful revenue, but it will test your capacity.", 2, [{ id: "accept-order", title: "Accept the order", description: "Take the revenue and risk service pressure.", cost: 0 }, { id: "decline-order", title: "Decline politely", description: "Protect the everyday customer experience.", cost: 0 }]));
-  if (state.day % 7 === 0) candidates.push(makeEvent("staff-absence", "A staff member is unavailable", "A staffing issue has reduced today's service flexibility.", 2, [{ id: "cover-shift", title: "Cover the shift", description: "Absorb the disruption and protect service.", cost: 0 }, { id: "run-short", title: "Run short", description: "Save cash and accept some pressure.", cost: 0 }]));
-  if (!candidates.length) return null; const index = Math.floor((Math.abs(Math.sin((state.seed + state.day) * 7.13)) * 100000) % candidates.length); return candidates[index];
+/** 0 = struggling, 1 = comfortable. Drives how hard the next situation is. */
+export function performanceIndex(state: GameState): number {
+  const runway = state.profit < 0 ? Math.min(1, state.cash / Math.max(1, Math.abs(state.profit) * 30)) : 1;
+  const rep = Math.min(1, state.reputation / 80);
+  const stock = Math.min(1, state.inventory / 60);
+  const streak = state.profitStreak >= 3 ? 1 : state.lossStreak >= 3 ? 0 : 0.5;
+  const profitable = state.cumulativeProfit > 0 ? 1 : 0.35;
+  return Math.max(0, Math.min(1, runway * 0.3 + rep * 0.2 + stock * 0.15 + streak * 0.15 + profitable * 0.2));
 }
+
+/** Costs scale with how comfortable the player is: gentler when struggling. */
+function tune(cost: number, perf: number): number {
+  return Math.round((cost * (0.65 + perf * 0.6)) / 500) * 500;
+}
+
+export function generateEvent(state: GameState): GameEvent | null {
+  if (state.day < 3 || state.currentEvent || state.day - state.lastEventDay < 2) return null;
+  const perf = performanceIndex(state);
+  const hard = perf > 0.66;      // doing well: push them
+  const easy = perf < 0.34;      // struggling: give them a way back
+  const c = (n: number) => tune(n, perf);
+  const pool: Array<{ event: GameEvent; weight: number }> = [];
+  const offer = (weight: number, event: GameEvent) => { if (weight > 0) pool.push({ event, weight }); };
+
+  // --- operational pressure ---
+  offer(state.inventory < 35 ? 3 : 0, makeEvent("stock-shortage", "Stock is running low",
+    "A few popular items will run out before the day is over. You can protect today's sales or save the cash.", 1,
+    [{ id: "emergency-stock", title: "Emergency restock", description: "Pay a premium for a same-day top-up.", cost: c(15000) },
+     { id: "conserve-stock", title: "Conserve what's left", description: "Spend nothing and accept some lost sales.", cost: 0 }]));
+
+  offer(state.consecutivePriceRaises >= 2 ? 3 : 0, makeEvent("bad-review", "Customers are talking about your prices",
+    "A regular has posted that the cafe has got expensive. How you answer will shape the next few days.", 2,
+    [{ id: "hold-price", title: "Hold prices steady", description: "Give people a reason to stay while things settle.", cost: 0 },
+     { id: "add-value", title: "Add a small combo offer", description: "Protect the headline price and add value instead.", cost: c(12000) },
+     { id: "ignore-review", title: "Let it pass", description: "Protect the margin and accept the risk.", cost: 0 }]));
+
+  offer(1.2, makeEvent("supplier-increase", "Your supplier has raised prices",
+    "An 18% increase on key ingredients, effective immediately.", 1,
+    [{ id: "accept-supplier", title: "Absorb it", description: "No disruption, but every sale earns less.", cost: 0 },
+     { id: "switch-supplier", title: "Find someone else", description: "Costs time and money now, protects margins later.", cost: c(12000) }]));
+
+  offer(state.format === "takeaway" ? 0 : 1, makeEvent("equipment-issue", "Something is not sounding right",
+    "One of your machines is making a noise it did not make last week.", 2,
+    [{ id: "repair-now", title: "Get it repaired", description: "Pay now and stop it becoming a bigger problem.", cost: c(18000) },
+     { id: "delay-repair", title: "Leave it for now", description: "Save the cash. It may hold. It may not.", cost: 0 }]));
+
+  offer(1, makeEvent("staff-absence", "Someone has called in sick",
+    "You are a person short and the lunch rush is coming.", 2,
+    [{ id: "cover-shift", title: "Cover it yourself", description: "A long day, but service holds up.", cost: 0 },
+     { id: "run-short", title: "Run short", description: "Save your energy and accept slower service.", cost: 0 }]));
+
+  // --- Mumbai specifics ---
+  offer(state.day > 20 ? 1.2 : 0, makeEvent("health-inspection", "A health inspector is at the door",
+    "Unannounced, as they always are. Your kitchen is about to be looked at properly.", 2,
+    [{ id: "full-clean", title: "Stop service and put it right", description: "Close for the afternoon and fix everything properly.", cost: c(14000) },
+     { id: "quick-tidy", title: "Tidy quickly and hope", description: "Keep serving. Risk a fine and a bad note on file.", cost: 0 }]));
+
+  offer(state.day > 60 ? 1.3 : 0, makeEvent("rent-hike", "Your landlord wants more",
+    "The lease is up for renewal and he is asking for a significant increase.", 3,
+    [{ id: "negotiate-rent", title: "Negotiate hard", description: "Spend on a broker and push back on the number.", cost: c(20000) },
+     { id: "accept-rent", title: "Accept it", description: "No fuss, but your fixed costs rise for good.", cost: 0 }]));
+
+  offer(state.reputation > 55 ? 1.2 : 0, makeEvent("delivery-app", "A delivery app wants you on the platform",
+    "More orders, more visibility — and a commission on every single one.", 2,
+    [{ id: "join-app", title: "Sign up", description: "New customers you would never have reached, at a cost per order.", cost: c(10000) },
+     { id: "stay-off", title: "Stay independent", description: "Keep your margin and your own customers.", cost: 0 }]));
+
+  offer(state.day > 40 ? 1 : 0, makeEvent("monsoon-flood", "The street is under water",
+    "Heavy rain has flooded the lane. Nobody is walking to a cafe today.", 2,
+    [{ id: "sandbags", title: "Protect the shop", description: "Spend on keeping the water and the damage out.", cost: c(11000) },
+     { id: "shut-early", title: "Shut early", description: "Send everyone home and lose the day's trade.", cost: 0 }]));
+
+  offer(1, makeEvent("power-cut", "The power has gone",
+    "No lights, no machines, and a queue outside.", 1,
+    [{ id: "hire-genset", title: "Hire a generator", description: "Keep trading through it.", cost: c(9000) },
+     { id: "wait-it-out", title: "Wait it out", description: "Serve what you can cold and lose the rest.", cost: 0 }]));
+
+  offer(state.staff >= 70 ? 1.2 : 0, makeEvent("staff-poached", "A chain is trying to hire your best person",
+    "They have been offered more money and a uniform. They are telling you out of loyalty.", 3,
+    [{ id: "match-offer-staff", title: "Match the offer", description: "Keep them, and carry a higher wage bill.", cost: c(16000) },
+     { id: "let-them-go", title: "Wish them well", description: "Save the money and lose experience off the floor.", cost: 0 }]));
+
+  offer(state.reputation >= 65 ? 1.4 : 0, makeEvent("food-blogger", "Someone is photographing their coffee",
+    "You recognise them. They review cafes, and a lot of people read it.", 2,
+    [{ id: "look-after-them", title: "Look after them properly", description: "Comp the table and put your best out.", cost: c(6000) },
+     { id: "treat-normal", title: "Treat them like anyone else", description: "Let the cafe speak for itself.", cost: 0 }]));
+
+  offer(state.day > 75 ? 1 : 0, makeEvent("licence-renewal", "Your licence is due for renewal",
+    "Paperwork, fees, and someone who can make it move faster.", 1,
+    [{ id: "pay-proper", title: "Do it properly", description: "Pay the fees and file it yourself. Slow but clean.", cost: c(13000) },
+     { id: "use-agent", title: "Use an agent", description: "Costs more, takes none of your time.", cost: c(21000) }]));
+
+  offer(state.day > 30 ? 0.9 : 0, makeEvent("construction", "They have dug up the road outside",
+    "Municipal work. Dust, noise, and a barrier where your customers used to walk.", 2,
+    [{ id: "signage", title: "Put up signage and offers", description: "Spend on pulling people past the mess.", cost: c(10000) },
+     { id: "ride-construction", title: "Wait for it to finish", description: "Nobody knows how long. Save the money.", cost: 0 }]));
+
+  offer(state.day > 50 ? 1 : 0, makeEvent("rival-closes", "The cafe down the road has shut",
+    "Their regulars are looking for somewhere new. So is their head barista.", 1,
+    [{ id: "hire-their-staff", title: "Hire their barista", description: "Experience, and their regulars may follow.", cost: c(17000) },
+     { id: "welcome-regulars", title: "Just welcome the crowd", description: "Spend nothing and see who turns up.", cost: 0 }]));
+
+  // --- opportunity, weighted toward players who are struggling ---
+  offer(easy ? 2.2 : 1, makeEvent("local-event", "There is an event round the corner",
+    "A crowd will pass your door this week. Are you ready for them?", 1,
+    [{ id: "prepare-staff", title: "Bring in extra hands", description: "Pay for help and catch more of the rush.", cost: c(16000) },
+     { id: "take-the-risk", title: "Manage as you are", description: "Spend nothing and hope you cope.", cost: 0 }]));
+
+  offer(state.reputation >= 70 ? (easy ? 2 : 1.2) : 0, makeEvent("viral-mention", "Someone posted about you",
+    "A local food page has put your cafe in front of a lot of people.", 2,
+    [{ id: "amplify", title: "Push it while it's warm", description: "Spend on a small boost behind the attention.", cost: c(10000) },
+     { id: "let-it-spread", title: "Let it travel", description: "Spend nothing and see how far word carries.", cost: 0 }]));
+
+  offer(state.serviceCapacity >= 150 ? (hard ? 1.6 : 1) : 0, makeEvent("bulk-order", "An office wants a standing order",
+    "Good money, every week — and it will test whether you can cope.", 2,
+    [{ id: "accept-order", title: "Take it on", description: "Real revenue, real pressure on service.", cost: 0 },
+     { id: "decline-order", title: "Decline politely", description: "Protect the experience of everyone else.", cost: 0 }]));
+
+  offer(hard ? 1.8 : 1, makeEvent("competitor-promotion", "A rival has launched an aggressive offer",
+    "The cafe two streets over is buying attention, and some of it is yours.", 2,
+    [{ id: "match-offer", title: "Match them", description: "Defend your customers, sacrifice margin.", cost: c(14000) },
+     { id: "differentiate", title: "Compete on quality instead", description: "Spend on being better rather than cheaper.", cost: c(12000) },
+     { id: "ignore-competitor", title: "Hold your nerve", description: "Stay out of a price war.", cost: 0 }]));
+
+  offer(0.5, makeEvent("rain", "Rain has slowed the street",
+    "Fewer people are walking today. You can spend to pull them in or ride it out.", 1,
+    [{ id: "delivery-push", title: "Push a local promotion", description: "Spend to recover some of the day.", cost: c(9000) },
+     { id: "ride-it-out", title: "Ride it out", description: "Save the cash and accept a quiet day.", cost: 0 }]));
+
+  // Recently seen events step aside so situations do not repeat.
+  const recent = state.eventHistory.slice(-4).map(entry => entry.split(":")[1]);
+  const eligible = pool.filter(p => !recent.includes(p.event.id));
+  const usable = eligible.length ? eligible : pool;
+  if (!usable.length) return null;
+
+  const total = usable.reduce((sum, p) => sum + p.weight, 0);
+  let cursor = (Math.abs(Math.sin((state.seed + state.day) * 7.13)) % 1) * total;
+  for (const item of usable) { cursor -= item.weight; if (cursor <= 0) return item.event; }
+  return usable[usable.length - 1].event;
+}
+
 export function applyEvent(state: GameState, optionId: string): GameState {
   if (!state.currentEvent) return state; const event = state.currentEvent; const option = event.options.find(item => item.id === optionId); if (!option || state.cash < option.cost) return state;
-  const next = { ...state, currentEvent: null, lastEventDay: state.day, eventHistory: [...state.eventHistory, `${state.day}:${event.id}:${optionId}`] }; if (option.cost > 0) next.cash -= option.cost;
-  switch (event.id) { case "supplier-increase": if (optionId === "accept-supplier") next.supplierCostMultiplier = Math.min(1.5, next.supplierCostMultiplier + 0.18); break; case "stock-shortage": if (optionId === "emergency-stock") next.inventory = Math.min(100, next.inventory + 35); else if (optionId === "conserve-stock") next.inventory = Math.max(0, next.inventory - 15); break; case "bad-review": if (optionId === "hold-price") { next.consecutivePriceRaises = 0; next.reputation = Math.min(100, next.reputation + 1); } else if (optionId === "add-value") { next.reputation = Math.min(100, next.reputation + 1); next.quality = Math.min(100, next.quality + 2); } else if (optionId === "ignore-review") next.reputation = Math.max(0, next.reputation - 4); break; case "rain": if (optionId === "delivery-push") next.marketing = Math.min(100, next.marketing + 10); break; case "competitor-promotion": if (optionId === "match-offer") next.marketing = Math.min(100, next.marketing + 12); else if (optionId === "differentiate") next.quality = Math.min(100, next.quality + 6); else next.reputation = Math.max(0, next.reputation - 1); break; case "local-event": if (optionId === "prepare-staff") next.serviceCapacity = Math.min(600, next.serviceCapacity + 20); break; case "equipment-issue": if (optionId === "delay-repair") next.quality = Math.max(0, next.quality - 8); break; case "viral-mention": if (optionId === "amplify") next.marketing = Math.min(100, next.marketing + 18); else next.reputation = Math.min(100, next.reputation + 1); break; case "bulk-order": if (optionId === "accept-order") next.serviceCapacity = Math.min(600, next.serviceCapacity + 10); break; case "staff-absence": if (optionId === "cover-shift") next.staff = Math.min(100, next.staff + 3); else next.quality = Math.max(0, next.quality - 4); break; }
+  const next = { ...state, currentEvent: null, lastEventDay: state.day, eventsHandled: (state.eventsHandled ?? 0) + 1, eventHistory: [...state.eventHistory, `${state.day}:${event.id}:${optionId}`] }; if (option.cost > 0) next.cash -= option.cost;
+  switch (event.id) { case "supplier-increase": if (optionId === "accept-supplier") next.supplierCostMultiplier = Math.min(1.5, next.supplierCostMultiplier + 0.18); break; case "stock-shortage": if (optionId === "emergency-stock") next.inventory = Math.min(100, next.inventory + 35); else if (optionId === "conserve-stock") next.inventory = Math.max(0, next.inventory - 15); break; case "bad-review": if (optionId === "hold-price") { next.consecutivePriceRaises = 0; next.reputation = Math.min(100, next.reputation + 1); } else if (optionId === "add-value") { next.reputation = Math.min(100, next.reputation + 1); next.quality = Math.min(100, next.quality + 2); } else if (optionId === "ignore-review") next.reputation = Math.max(0, next.reputation - 4); break; case "rain": if (optionId === "delivery-push") next.marketing = Math.min(100, next.marketing + 10); break; case "competitor-promotion": if (optionId === "match-offer") next.marketing = Math.min(100, next.marketing + 12); else if (optionId === "differentiate") next.quality = Math.min(100, next.quality + 6); else next.reputation = Math.max(0, next.reputation - 1); break; case "local-event": if (optionId === "prepare-staff") next.serviceCapacity = Math.min(600, next.serviceCapacity + 20); break; case "equipment-issue": if (optionId === "delay-repair") next.quality = Math.max(0, next.quality - 8); break; case "viral-mention": if (optionId === "amplify") next.marketing = Math.min(100, next.marketing + 18); else next.reputation = Math.min(100, next.reputation + 1); break; case "bulk-order": if (optionId === "accept-order") next.serviceCapacity = Math.min(600, next.serviceCapacity + 10); break; case "staff-absence": if (optionId === "cover-shift") next.staff = Math.min(100, next.staff + 3); else next.quality = Math.max(0, next.quality - 4); break;
+    case "health-inspection": if (optionId === "full-clean") { next.quality = Math.min(100, next.quality + 5); next.reputation = Math.min(100, next.reputation + 2); } else { next.reputation = Math.max(0, next.reputation - 6); next.quality = Math.max(0, next.quality - 3); } break;
+    case "rent-hike": if (optionId === "accept-rent") next.supplierCostMultiplier = Math.min(1.6, next.supplierCostMultiplier + 0.10); else next.reputation = Math.min(100, next.reputation + 1); break;
+    case "delivery-app": if (optionId === "join-app") { next.marketing = Math.min(100, next.marketing + 16); next.supplierCostMultiplier = Math.min(1.6, next.supplierCostMultiplier + 0.06); } break;
+    case "monsoon-flood": if (optionId === "sandbags") next.reputation = Math.min(100, next.reputation + 1); else { next.inventory = Math.max(0, next.inventory - 12); next.reputation = Math.max(0, next.reputation - 2); } break;
+    case "power-cut": if (optionId === "hire-genset") next.reputation = Math.min(100, next.reputation + 1); else { next.inventory = Math.max(0, next.inventory - 8); next.reputation = Math.max(0, next.reputation - 2); } break;
+    case "staff-poached": if (optionId === "match-offer-staff") next.staff = Math.min(100, next.staff + 4); else { next.staff = Math.max(0, next.staff - 12); next.quality = Math.max(0, next.quality - 5); } break;
+    case "food-blogger": if (optionId === "look-after-them") { next.reputation = Math.min(100, next.reputation + 5); next.marketing = Math.min(100, next.marketing + 8); } else next.reputation = Math.min(100, next.reputation + 2); break;
+    case "licence-renewal": if (optionId === "use-agent") next.reputation = Math.min(100, next.reputation + 1); else next.quality = Math.max(0, next.quality - 1); break;
+    case "construction": if (optionId === "signage") next.marketing = Math.min(100, next.marketing + 12); else next.reputation = Math.max(0, next.reputation - 2); break;
+    case "rival-closes": if (optionId === "hire-their-staff") { next.staff = Math.min(100, next.staff + 9); next.quality = Math.min(100, next.quality + 4); } else next.marketing = Math.min(100, next.marketing + 6); break; }
   return next;
 }
 
