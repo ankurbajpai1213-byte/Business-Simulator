@@ -2,6 +2,8 @@
 
 import { useEffect, useState, type ReactNode } from "react";
 import Setup from "@/components/Setup";
+import Brewing from "@/components/Brewing";
+import { sfx, setSound, soundOn } from "@/lib/sound";
 import { CafeScene, DecisionIcon, Spark } from "@/components/Art";
 import { RUN_LENGTH_DAYS, periodName, slotsForTurn, stageFor, turnLabel, type SpanReport } from "@/lib/cadence";
 import {
@@ -85,6 +87,11 @@ const STRATEGIC = new Set<Decision>(["supply-contract", "hire-manager", "extend-
 const decisionName = (id: Decision) => DECISIONS.find(x => x[0] === id)?.[1] ?? "your decision";
 
 const EVENT_NAMES: Record<string, string> = {
+  "health-inspection": "Health inspection", "rent-hike": "Landlord raised the rent",
+  "delivery-app": "Delivery app approached you", "monsoon-flood": "The street flooded",
+  "power-cut": "Power cut", "staff-poached": "Staff being poached",
+  "food-blogger": "A food blogger came in", "licence-renewal": "Licence renewal",
+  "construction": "Roadworks outside", "rival-closes": "A rival shut down",
   "bad-review": "Customers noticed the prices", "supplier-increase": "Supplier raised prices",
   "staff-absence": "Staff member away", "rain": "Rain slowed the street",
   "competitor-promotion": "Competitor promotion", "local-event": "Local event nearby",
@@ -92,6 +99,16 @@ const EVENT_NAMES: Record<string, string> = {
   "bulk-order": "Bulk order offered", "stock-shortage": "Stock ran low",
 };
 const EVENT_CHOICES: Record<string, string> = {
+  "full-clean": "Closed and cleaned properly", "quick-tidy": "Tidied and hoped",
+  "negotiate-rent": "Negotiated", "accept-rent": "Accepted the rise",
+  "join-app": "Joined the platform", "stay-off": "Stayed independent",
+  "sandbags": "Protected the shop", "shut-early": "Shut early",
+  "hire-genset": "Hired a generator", "wait-it-out": "Waited it out",
+  "match-offer-staff": "Matched the offer", "let-them-go": "Let them go",
+  "look-after-them": "Looked after them", "treat-normal": "Treated them normally",
+  "pay-proper": "Filed it myself", "use-agent": "Used an agent",
+  "signage": "Put up signage", "ride-construction": "Waited it out",
+  "hire-their-staff": "Hired their barista", "welcome-regulars": "Welcomed the crowd",
   "emergency-stock": "Emergency restock", "conserve-stock": "Conserved stock",
   "hold-price": "Held prices", "add-value": "Added a value offer", "ignore-review": "Ignored it",
   "accept-supplier": "Accepted the increase", "switch-supplier": "Switched supplier",
@@ -105,6 +122,13 @@ const EVENT_CHOICES: Record<string, string> = {
 };
 
 const MILESTONES: Record<string, string> = {
+  "quarter-one": "Three months", "half-year": "Half a year", "full-year": "A full year",
+  "steady-hand": "Steady hand", "fair-price": "Fair price", "bounced-back": "Bounced back",
+  "word-gets-around": "Word gets around", "read-the-room": "Read the room",
+  "lean-operator": "Lean operator", "full-house": "Full house",
+  "profitable-month": "A profitable month", "profit-5l": "₹5L profit", "profit-20l": "₹20L profit",
+  "served-5000": "5,000 served", "supply-secured": "Supply secured",
+  "manager-hired": "Someone to run the floor", "doubled-capacity": "Twice the cafe",
   "open-business": "Opened up", "first-sale": "First sale", "first-customer": "First customer",
   "100-customers": "100 customers", "500-customers": "500 customers", "1000-customers": "1,000 customers",
   "revenue-1l": "₹1L revenue", "revenue-5l": "₹5L revenue", "revenue-10l": "₹10L revenue",
@@ -134,6 +158,9 @@ export default function Home() {
   const [detail, setDetail] = useState<MetricKey | null>(null);
   const [promoted, setPromoted] = useState<{ from: string; to: string; label: string } | null>(null);
   const [ledgerOpen, setLedgerOpen] = useState(false);
+  const [milestonesOpen, setMilestonesOpen] = useState(false);
+  const [audio, setAudio] = useState(false);
+  useEffect(() => { setAudio(soundOn()); }, []);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
 
   useEffect(() => { (async () => {
@@ -187,6 +214,9 @@ export default function Home() {
       const after = d.state as GameState;
       setState(after); setPicked([]); setEventOption(null);
       setSummary({ before, after, decision: chosen.find(x => x !== "no-action") ?? chosen[0], picked: chosen, report: d.report as SpanReport | undefined });
+      const gained = (d.report as SpanReport | undefined)?.profit ?? after.profit;
+      if (after.milestones.length > before.milestones.length) sfx.milestone();
+      else if (gained > 0) sfx.coin(); else sfx.loss();
       const wasStage = stageFor(before.day), nowStage = stageFor(after.day);
       if (wasStage.id !== nowStage.id) setPromoted({ from: wasStage.unit, to: nowStage.unit, label: nowStage.label });
     } catch (e) { setError(e instanceof Error ? e.message : "Unable to finish the turn."); }
@@ -287,23 +317,24 @@ export default function Home() {
         <header className="bar">
           <div>
             <div className="cafe">{state.businessName || "Your cafe"}</div>
-            <div className="sub">{turnLabel(state.day)} · {stageFor(state.day).label}</div>
+            <div className="sub">{turnLabel(state.day)} · {stageFor(state.day).label}{state.weatherToday && state.weatherToday !== "clear" ? ` · ${({hot:"Hot",rain:"Rain",cold:"Cold",festival:"Festival"} as Record<string,string>)[state.weatherToday]}` : ""}</div>
           </div>
           <div className="bar-actions">
-            <button className="ghost" onClick={() => setHistoryOpen(true)}>History</button>
+            <button className="ghost" onClick={() => { const next = !audio; setAudio(next); setSound(next); if (next) sfx.select(); }} aria-label={audio ? "Turn sound off" : "Turn sound on"}>{audio ? "🔊" : "🔇"}</button>
+            <button className="ghost" onClick={() => { sfx.tap(); setHistoryOpen(true); }}>History</button>
             <button className="ghost" onClick={newGame} disabled={busy}>New</button>
           </div>
         </header>
 
         <button className="scene-tap" onClick={() => setLedgerOpen(true)} aria-label="Open the books">
-          <CafeScene format={state.format} busy={state.serviceCapacity > 0 ? state.customers / state.serviceCapacity : 0} raining={state.currentEvent?.id === "rain"} />
-          <span className="scene-hint">{state.customers > 0 ? `${state.customers} in yesterday` : "Nobody in yesterday"} · tap for the books</span>
+          <CafeScene tone={state.day <= 1 ? "" : state.profit > 0 ? "good" : "bad"} format={state.format} busy={state.serviceCapacity > 0 ? state.customers / state.serviceCapacity : 0} raining={state.currentEvent?.id === "rain"} weather={state.weatherToday} />
+          <span className="scene-hint">{state.day <= 1 ? "Opening tomorrow" : state.customers > 0 ? `${state.customers} in yesterday` : "Nobody in yesterday"} · tap for the books</span>
         </button>
 
         <div className="metrics">
           <Metric label="Cash" value={formatCompactINR(state.cash)} series={series("cash")} onClick={() => setDetail("cash")} />
-          <Metric label="Customers" value={state.customers.toLocaleString("en-IN")} series={series("customers")} onClick={() => setDetail("customers")} />
-          <Metric label="Profit" value={formatCompactINR(state.profit)} tone={state.profit >= 0 ? "pos" : "neg"} series={series("profit")} onClick={() => setDetail("profit")} />
+          <Metric label="Customers" value={state.day <= 1 ? "—" : state.customers.toLocaleString("en-IN")} series={series("customers")} onClick={() => setDetail("customers")} />
+          <Metric label="Profit" value={state.day <= 1 ? "—" : formatCompactINR(state.profit)} tone={state.profit >= 0 ? "pos" : "neg"} series={series("profit")} onClick={() => setDetail("profit")} />
           <Metric label="Reputation" value={`${Math.round(state.reputation)}%`} series={series("reputation")} onClick={() => setDetail("reputation")} />
           <Metric label="Stock" value={`${Math.round(state.inventory)}%`} tone={state.inventory < 20 ? "neg" : undefined} series={series("inventory")} onClick={() => setDetail("stock")} />
           <Metric label="Staff" value={`${state.staff}%`} onClick={() => setDetail("staff")} />
@@ -339,7 +370,7 @@ export default function Home() {
                 : look.line;
               return (
                 <button key={id} style={{ animationDelay: `${Math.min(8, idxOf(id)) * 28}ms` }} className={`choice-card dec pop ${on ? "selected" : ""} ${!ok && !on ? "locked" : ""}`}
-                  onClick={() => { if (on) setPicked(p => p.filter(x => x !== id)); else if (ok) setPicked(p => [...p, id]); }}
+                  onClick={() => { if (on) { sfx.tap(); setPicked(p => p.filter(x => x !== id)); } else if (ok) { sfx.select(); setPicked(p => [...p, id]); } }}
                   disabled={busy || (!ok && !on)}>
                   <div className="dec-row">
                     {STRATEGIC.has(id) && <span className="strat-flag">Long term</span>}
@@ -354,7 +385,7 @@ export default function Home() {
               );
             })}
           </div>
-          <Journey state={state} />
+          <Journey state={state} onOpen={() => setMilestonesOpen(true)} />
           <button className="primary" onClick={finishDay} disabled={busy || picked.length === 0 || !!(state.currentEvent && !eventOption)}>
             {busy ? "Playing it out…" : stageFor(state.day).id === "daily" ? "Finish the day" : `Run the ${periodName(state.day)}`}
           </button>
@@ -365,10 +396,12 @@ export default function Home() {
       {state.currentEvent && !eventOption && !summary && (
         <EventModal event={state.currentEvent} cash={state.cash} onChoose={setEventOption} />
       )}
+      {busy && !summary && <div className="backdrop brew-backdrop"><Brewing label={stageFor(state.day).id === "daily" ? "Running the day…" : `Running the ${periodName(state.day)}…`} /></div>}
       {summary && <DaySummary {...summary} onClose={() => setSummary(null)} />}
       {!summary && promoted && <PromotionModal {...promoted} onClose={() => setPromoted(null)} />}
       {detail && <MetricDetail metric={detail} state={state} onClose={() => setDetail(null)} />}
       {ledgerOpen && <LedgerModal state={state} onClose={() => setLedgerOpen(false)} />}
+      {milestonesOpen && <MilestoneModal state={state} onClose={() => setMilestonesOpen(false)} />}
       {historyOpen && <HistoryModal state={state} onClose={() => setHistoryOpen(false)} />}
       {feedbackOpen && <FeedbackModal onDone={submitFeedback} />}
     </main>
@@ -555,24 +588,53 @@ function EventModal({ event, cash, onChoose }: { event: NonNullable<GameState["c
   );
 }
 
-function Journey({ state }: { state: GameState }) {
+function Journey({ state, onOpen }: { state: GameState; onOpen: () => void }) {
   const pct = Math.min(100, Math.round((state.day / RUN_LENGTH_DAYS) * 100));
-  const earned = state.milestones.filter(m => MILESTONES[m]);
-  const recent = [...earned].reverse().slice(0, 4);
+  const earned = state.milestones.filter(m => MILESTONES[m]).length;
   return (
-    <div className="journey">
+    <button className="journey" onClick={onOpen}>
       <div className="journey-top">
         <span>Your journey</span>
-        <strong>{earned.length} milestone{earned.length === 1 ? "" : "s"}</strong>
+        <strong>{earned} milestone{earned === 1 ? "" : "s"} ›</strong>
       </div>
       <div className="jbar"><i style={{ width: `${Math.max(2, pct)}%` }} /></div>
-      <div className="jmeta">Day {state.day} of {RUN_LENGTH_DAYS} · {state.totalCustomers.toLocaleString("en-IN")} served so far</div>
-      <div className="jchips">
-        {recent.length
-          ? recent.map(m => <span key={m}>{MILESTONES[m]}</span>)
-          : <span className="jempty">Finish your first day to start earning milestones</span>}
+      <div className="jmeta">Day {state.day} of {RUN_LENGTH_DAYS} · {state.totalCustomers.toLocaleString("en-IN")} served</div>
+    </button>
+  );
+}
+
+const MILESTONE_ORDER: string[] = [
+  "open-business", "week-one", "first-profit", "crisis-survived", "bounce-back",
+  "month-one", "steady-hand", "fair-price", "profitable-month", "full-house",
+  "word-gets-around", "read-the-room", "quarter-one", "bounced-back", "lean-operator",
+  "profit-5l", "supply-secured", "manager-hired", "served-5000", "half-year",
+  "doubled-capacity", "profit-20l", "full-year",
+];
+
+function MilestoneModal({ state, onClose }: { state: GameState; onClose: () => void }) {
+  const has = new Set(state.milestones);
+  const earned = MILESTONE_ORDER.filter(m => has.has(m)).length;
+  return (
+    <Modal onClose={onClose}>
+      <div className="eyebrow">Your journey</div>
+      <h2>{earned} of {MILESTONE_ORDER.length} milestones</h2>
+      <p className="detail-what">Everything {state.businessName || "your cafe"} has managed so far, and what is still ahead.</p>
+      <div className="timeline">
+        <div className="timeline-track">
+          {MILESTONE_ORDER.map(id => {
+            const done = has.has(id);
+            return (
+              <div key={id} className={`tl-item ${done ? "done" : ""}`}>
+                <i className="tl-dot">{done ? "✓" : ""}</i>
+                <span>{MILESTONES[id] ?? id}</span>
+              </div>
+            );
+          })}
+        </div>
       </div>
-    </div>
+      <p className="daymsg">Swipe across to see what is coming.</p>
+      <button className="primary" onClick={onClose}>Back to the cafe</button>
+    </Modal>
   );
 }
 
@@ -585,6 +647,8 @@ function DaySummary({ before, after, decision, picked, report, onClose }: { befo
   const sign = (n: number) => (n > 0 ? `+${n.toLocaleString("en-IN")}` : n.toLocaleString("en-IN"));
   const cls = (n: number) => (n > 0 ? "pos" : n < 0 ? "neg" : "");
   const custSeries = [...after.dayHistory.slice(-14).map(r => r.customers)];
+  const fresh = after.milestones.filter(m => !before.milestones.includes(m) && MILESTONES[m]);
+  const won = fresh.length > 0 || (report ? report.profit > 0 : after.profit > 0);
   const unit = report ? (report.days === 7 ? "week" : report.days === 14 ? "fortnight" : report.days >= 28 ? "month" : `${report.days} days`) : "day";
 
   const acted = picked.filter(p => p !== "no-action");
@@ -614,8 +678,12 @@ function DaySummary({ before, after, decision, picked, report, onClose }: { befo
 
   return (
     <Modal onClose={onClose}>
+      {won && <Confetti />}
       {(report ? report.profit > 0 : after.profit > 0) && (
         <div className="burst" aria-hidden="true">{[0,1,2,3,4,5].map(i => <i key={i} style={{ animationDelay: `${i * 70}ms`, left: `${12 + i * 14}%` }}>₹</i>)}</div>
+      )}
+      {fresh.length > 0 && (
+        <div className="milestone-pop"><b>Milestone{fresh.length > 1 ? "s" : ""}</b><span>{fresh.map(m => MILESTONES[m] ?? m).join(" · ")}</span></div>
       )}
       <div className="eyebrow">{multi && report ? `Days ${report.fromDay}–${report.toDay}` : `Day ${before.day} done`}</div>
       {report?.interrupted && (
@@ -724,6 +792,15 @@ function Metric({ label, value, tone, series, onClick }: { label: string; value:
     <i className="tapdot" aria-hidden="true" />
   </button>;
 }
+function Confetti() {
+  const colours = ["var(--amber)", "var(--teal)", "var(--coral)", "var(--violet)", "var(--sky)"];
+  return <div className="confetti" aria-hidden="true">
+    {Array.from({ length: 22 }).map((_, i) => (
+      <i key={i} style={{ left: `${(i * 4.5) % 100}%`, background: colours[i % colours.length], animationDelay: `${(i % 7) * 90}ms` }} />
+    ))}
+  </div>;
+}
+
 function Modal({ children, onClose }: { children: ReactNode; onClose: () => void }) {
   return <div className="backdrop" onMouseDown={e => e.target === e.currentTarget && onClose()}>
     <div className="sheet">{children}</div>
