@@ -1,9 +1,12 @@
 export const CAPITAL_OPTIONS = [500000, 1000000, 2000000, 3500000, 5000000] as const;
 
-export const CAPITAL_CAPTIONS: Record<number, string> = {
-  500000: "You can do more.",
-  1000000: "You're being too realistic.",
-  2000000: "Yeah, that seems about average.",
-  3500000: "You're stretching a little.",
-  5000000: "Oh really? You have that much? 😳",
+export const CAPITAL_NOTES: Record<number, string> = {
+  500000: "Tight. You'll feel every rupee you spend.",
+  1000000: "Careful money. Room for one mistake, not two.",
+  2000000: "Comfortable. You can build properly and still breathe.",
+  3500000: "Generous. Ambitious plans become possible.",
+  5000000: "Serious money. Now the question is what you do with it.",
 };
+
+// Kept for older imports.
+export const CAPITAL_CAPTIONS = CAPITAL_NOTES;
