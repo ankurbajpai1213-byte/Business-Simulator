@@ -3,7 +3,7 @@ import { cookies } from "next/headers";
 import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
 import { applyDecision, advanceDay, applyEvent, generateEvent, isDecisionAvailable, type Decision, type GameEventId, type GameState } from "@/lib/simulation";
 import { applyDelayedEffect, createDelayedEffects, shouldShowMilestone, type DelayedEffect } from "@/lib/simulation-engine-v2";
-import { daysThisTurn, RUN_LENGTH_DAYS, type SpanReport } from "@/lib/cadence";
+import { daysThisTurn, slotsForTurn, RUN_LENGTH_DAYS, type SpanReport } from "@/lib/cadence";
 
 const SESSION_COOKIE = "bs_session";
 const decisions = new Set<Decision>(["raise-price", "lower-price", "marketing", "hire", "quality", "inventory", "no-action"]);
@@ -11,7 +11,7 @@ type V2State = GameState & { pendingDelayedEffects?: DelayedEffect[] };
 
 export async function POST(request: Request) {
   try {
-    const body = (await request.json()) as { decision?: Decision; eventOption?: string };
+    const body = (await request.json()) as { decision?: Decision; decisions?: Decision[]; eventOption?: string };
     const sessionId = (await cookies()).get(SESSION_COOKIE)?.value;
     if (!sessionId) return NextResponse.json({ error: "No active game session." }, { status: 401 });
     const supabase = getSupabaseAdmin();
@@ -45,11 +45,23 @@ export async function POST(request: Request) {
       currentState = applyEvent(currentState, body.eventOption) as V2State;
     }
 
-    if (!body.decision || !decisions.has(body.decision)) return NextResponse.json({ error: "Invalid simulation request." }, { status: 400 });
-    if (!isDecisionAvailable(currentState, body.decision)) return NextResponse.json({ error: "That decision is not available yet, is already at its maximum, or there is not enough cash for it." }, { status: 409 });
+    // Accept a list of actions; a single decision stays valid for older clients.
+    const requested: Decision[] = Array.isArray(body.decisions) && body.decisions.length
+      ? body.decisions
+      : body.decision ? [body.decision] : [];
+    if (!requested.length || requested.some(d => !decisions.has(d))) return NextResponse.json({ error: "Invalid simulation request." }, { status: 400 });
+    if (new Set(requested).size !== requested.length) return NextResponse.json({ error: "Each action can only be chosen once per turn." }, { status: 400 });
+    if (requested.includes("raise-price") && requested.includes("lower-price")) return NextResponse.json({ error: "You cannot raise and lower prices in the same turn." }, { status: 400 });
+    const slots = slotsForTurn(expectedDay);
+    if (requested.length > slots) return NextResponse.json({ error: `You can take at most ${slots} action${slots > 1 ? "s" : ""} this turn.` }, { status: 400 });
 
     const stateBeforeDecision = currentState;
-    currentState = applyDecision(currentState, body.decision) as V2State;
+    // Validate and apply in order; each must still be affordable after the previous one.
+    for (const action of requested) {
+      if (!isDecisionAvailable(currentState, action)) return NextResponse.json({ error: "One of those actions is not available yet, is already at its maximum, or there is not enough cash for it." }, { status: 409 });
+      currentState = applyDecision(currentState, action) as V2State;
+    }
+    const primary: Decision = requested.find(d => d !== "no-action") ?? requested[0];
     const turnSpend = Math.max(0, turnCashBefore - currentState.cash);
     const rainToday = resolvedEventId === "rain";
 
@@ -61,7 +73,7 @@ export async function POST(request: Request) {
 
     for (let i = 0; i < span; i += 1) {
       // Immediate spend and any event weather only land on the first day of the span.
-      const dayDecision = i === 0 ? body.decision : "no-action";
+      const dayDecision = i === 0 ? primary : "no-action";
       const spend = i === 0 ? turnSpend : 0;
       const rain = i === 0 ? rainToday : false;
 
@@ -89,7 +101,7 @@ export async function POST(request: Request) {
     }
 
     // Queue consequences so the decision can matter after the day it was made.
-    const newEffects = createDelayedEffects(stateBeforeDecision, body.decision, expectedDay);
+    const newEffects = requested.flatMap(action => createDelayedEffects(stateBeforeDecision, action, expectedDay));
     nextState.pendingDelayedEffects = [
       ...(nextState.pendingDelayedEffects ?? []),
       ...newEffects,
@@ -131,7 +143,8 @@ export async function POST(request: Request) {
       day: nextState.day - 1,
       event_type: event ? "business_event" : "day_advanced",
       payload: {
-        decision: body.decision,
+        decision: primary,
+        decisions: requested,
         eventOption: resolvedEventOption,
         resolvedEventTitle,
         resolvedEventId,
