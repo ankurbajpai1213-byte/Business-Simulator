@@ -248,7 +248,7 @@ export default function Home() {
     <Screen>
       <Eyebrow>Welcome</Eyebrow>
       <H1>Build it. Run it.<br />See what happens.</H1>
-      <P>A cafe in Mumbai. Ninety days. Every decision has consequences — and there are no perfect answers.</P>
+      <P>A cafe in Mumbai. One year to make it work. Every decision has consequences — and there are no perfect answers.</P>
       <label className="field-label" htmlFor="yourname">First, what should we call you?</label>
       <input id="yourname" className="input" value={name} maxLength={60} autoFocus
         onChange={e => setName(e.target.value)} onKeyDown={e => e.key === "Enter" && saveName()} placeholder="Your name" />
