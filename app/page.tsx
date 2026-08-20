@@ -22,6 +22,19 @@ const DECISIONS: Array<[Decision, string, string, string]> = [
 ];
 const decisionName = (id: Decision) => DECISIONS.find(x => x[0] === id)?.[1] ?? "your decision";
 
+const MILESTONES: Record<string, string> = {
+  "open-business": "Opened up", "first-sale": "First sale", "first-customer": "First customer",
+  "100-customers": "100 customers", "500-customers": "500 customers", "1000-customers": "1,000 customers",
+  "revenue-1l": "₹1L revenue", "revenue-5l": "₹5L revenue", "revenue-10l": "₹10L revenue",
+  "first-profit": "First profit", "profit-streak-3": "3 good days", "profit-streak-5": "5 good days",
+  "crisis-survived": "Survived a crisis", "bounce-back": "Bounced back",
+  "reputation-60": "Getting noticed", "reputation-80": "Local favourite",
+  "day-5": "Five days", "day-10": "Ten days", "day-30": "Thirty days",
+  "week-one": "First week", "month-one": "First month", "profit-500k": "₹5L profit",
+};
+
+type MetricKey = "cash" | "customers" | "profit" | "reputation" | "stock" | "staff";
+
 type Screen = "loading" | "welcome" | "cafe-name" | "setup" | "game";
 
 export default function Home() {
@@ -36,6 +49,7 @@ export default function Home() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [detail, setDetail] = useState<MetricKey | null>(null);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
 
   useEffect(() => { (async () => {
@@ -197,33 +211,23 @@ export default function Home() {
         <CafeScene format={state.format} busy={state.serviceCapacity > 0 ? state.customers / state.serviceCapacity : 0} raining={state.currentEvent?.id === "rain"} />
 
         <div className="metrics">
-          <Metric label="Cash" value={formatCompactINR(state.cash)} series={series("cash")} />
-          <Metric label="Customers" value={state.customers.toLocaleString("en-IN")} series={series("customers")} />
-          <Metric label="Profit" value={formatCompactINR(state.profit)} tone={state.profit >= 0 ? "pos" : "neg"} series={series("profit")} />
-          <Metric label="Rep" value={`${Math.round(state.reputation)}%`} series={series("reputation")} />
-          <Metric label="Stock" value={`${Math.round(state.inventory)}%`} tone={state.inventory < 20 ? "neg" : undefined} series={series("inventory")} />
-          <Metric label="Staff" value={`${state.staff}%`} />
+          <Metric label="Cash" value={formatCompactINR(state.cash)} series={series("cash")} onClick={() => setDetail("cash")} />
+          <Metric label="Customers" value={state.customers.toLocaleString("en-IN")} series={series("customers")} onClick={() => setDetail("customers")} />
+          <Metric label="Profit" value={formatCompactINR(state.profit)} tone={state.profit >= 0 ? "pos" : "neg"} series={series("profit")} onClick={() => setDetail("profit")} />
+          <Metric label="Reputation" value={`${Math.round(state.reputation)}%`} series={series("reputation")} onClick={() => setDetail("reputation")} />
+          <Metric label="Stock" value={`${Math.round(state.inventory)}%`} tone={state.inventory < 20 ? "neg" : undefined} series={series("inventory")} onClick={() => setDetail("stock")} />
+          <Metric label="Staff" value={`${state.staff}%`} onClick={() => setDetail("staff")} />
         </div>
-
-        {state.currentEvent && (
-          <section className="card event">
-            <Eyebrow>Something happened</Eyebrow>
-            <h2>{state.currentEvent.title}</h2>
-            <p>{state.currentEvent.narrative}</p>
-            <div className="stack">
-              {state.currentEvent.options.map(o => (
-                <button key={o.id} className={`choice-card ${eventOption === o.id ? "selected" : ""}`} onClick={() => setEventOption(o.id)} disabled={busy}>
-                  <div className="choice-head"><strong>{o.title}</strong>{eventOption === o.id && <span className="tick">Chosen</span>}</div>
-                  <small>{o.description}</small>
-                  <em>{o.cost ? formatINR(o.cost) : "No cost"}</em>
-                </button>
-              ))}
-            </div>
-          </section>
-        )}
 
         <section className="card play-card">
           <div className="play-head">
+          {state.currentEvent && eventOption && (
+            <button className="event-chip" onClick={() => setEventOption(null)}>
+              <span>{state.currentEvent.title}</span>
+              <strong>{state.currentEvent.options.find(o => o.id === eventOption)?.title}</strong>
+              <em>change</em>
+            </button>
+          )}
           <Eyebrow>{turnLabel(state.day)}</Eyebrow>
           <h2>{stageFor(state.day).id === "daily" ? `How will you run ${state.businessName || "the cafe"} today?` : `What\u2019s your plan for the next ${periodName(state.day)}?`}</h2>
           <div className="slotline">
@@ -253,6 +257,7 @@ export default function Home() {
               );
             })}
           </div>
+          <Journey state={state} />
           <button className="primary" onClick={finishDay} disabled={busy || picked.length === 0 || !!(state.currentEvent && !eventOption)}>
             {busy ? "Playing it out…" : stageFor(state.day).id === "daily" ? "Finish the day" : `Run the ${periodName(state.day)}`}
           </button>
@@ -260,10 +265,150 @@ export default function Home() {
         </section>
       </div>
 
+      {state.currentEvent && !eventOption && !summary && (
+        <EventModal event={state.currentEvent} cash={state.cash} onChoose={setEventOption} />
+      )}
       {summary && <DaySummary {...summary} onClose={() => setSummary(null)} />}
+      {detail && <MetricDetail metric={detail} state={state} onClose={() => setDetail(null)} />}
       {historyOpen && <HistoryModal state={state} onClose={() => setHistoryOpen(false)} />}
       {feedbackOpen && <FeedbackModal onDone={submitFeedback} />}
     </main>
+  );
+}
+
+function MetricDetail({ metric, state, onClose }: { metric: MetricKey; state: GameState; onClose: () => void }) {
+  const hist = state.dayHistory;
+  const rentMonthly = LOCATION_OPTIONS.find(l => l.id === state.location)?.rentMonthly ?? 0;
+  const rentDaily = Math.round(rentMonthly / 30);
+  const payrollDaily = 7000 + Math.round(state.staff * 60);
+  const fixedDaily = rentDaily + payrollDaily;
+  const daysOpen = Math.max(1, state.day - 1);
+  const avgCustomers = Math.round(state.totalCustomers / daysOpen);
+  const prev = hist.length > 1 ? hist[hist.length - 2] : null;
+  const first = hist.length ? hist[0] : null;
+  const runway = state.profit < 0 ? Math.floor(state.cash / Math.abs(state.profit)) : null;
+  const stockCover = state.customers > 0 ? (state.inventory / Math.max(1, state.customers / 9)).toFixed(1) : "—";
+
+  const D: Record<MetricKey, { title: string; big: string; what: string; rows: Array<[string, string]>; note?: string }> = {
+    cash: {
+      title: "Cash", big: formatINR(state.cash),
+      what: "Money you can actually spend right now. Every action you take comes out of this, and if it reaches zero the business closes.",
+      rows: [["Rent", `${formatINR(rentMonthly)}/month (${formatINR(rentDaily)} a day)`],
+             ["Wages", `about ${formatINR(payrollDaily)} a day`],
+             ["Fixed costs", `${formatINR(fixedDaily)} a day before you sell anything`]],
+      note: runway !== null
+        ? `At yesterday's loss you have roughly ${runway} day${runway === 1 ? "" : "s"} of cash left. Rent and wages keep coming whether customers do or not.`
+        : "You're covering your costs at the moment. Rent and wages still come out every single day.",
+    },
+    customers: {
+      title: "Customers", big: state.customers.toLocaleString("en-IN"),
+      what: "How many people came in on the most recent day — not a total. Your total is counted separately below.",
+      rows: [["Average per day", `${avgCustomers}`],
+             ["Since you opened", `${state.totalCustomers.toLocaleString("en-IN")} people`],
+             ["Vs yesterday", prev ? `${state.customers - prev.customers > 0 ? "+" : ""}${state.customers - prev.customers}` : "—"],
+             ["Vs your first day", first ? `${state.customers - first.customers > 0 ? "+" : ""}${state.customers - first.customers}` : "—"]],
+      note: `You can serve up to ${state.serviceCapacity} people a day. Past that, service suffers and reputation drops.`,
+    },
+    profit: {
+      title: "Profit", big: formatINR(state.profit),
+      what: state.profit < 0
+        ? "This is the most recent day on its own, not your whole run. A red number means that one day cost more than it earned."
+        : "This is what the most recent day earned after all its costs — not your whole run.",
+      rows: [["Most recent day", formatINR(state.profit)],
+             ["Whole run so far", formatINR(state.cumulativeProfit)],
+             ["Total revenue", formatINR(state.cumulativeRevenue)],
+             ["Good days vs bad", `${state.profitableDays} good, ${state.lossDays} bad`]],
+      note: state.cumulativeProfit < 0 && state.profit > 0
+        ? "Yesterday made money, but you're still behind overall. Early losses take time to earn back."
+        : state.cumulativeProfit > 0 && state.profit < 0
+        ? "One bad day, but you're still ahead overall. Worth watching, not panicking about."
+        : "Profit and cash are different things — you can be profitable and still short of cash, or the other way round.",
+    },
+    reputation: {
+      title: "Reputation", big: `${Math.round(state.reputation)}%`,
+      what: "What people locally think of you. It pulls customers in slowly and pushes them away quickly.",
+      rows: [["Now", `${Math.round(state.reputation)}%`],
+             ["Vs yesterday", prev ? `${(state.reputation - prev.reputation).toFixed(1)}` : "—"],
+             ["Quality", `${state.quality}%`]],
+      note: "It rises with good quality and profitable days. It falls with repeated price rises, running out of stock, and queues you can't handle.",
+    },
+    stock: {
+      title: "Stock", big: `${Math.round(state.inventory)}%`,
+      what: "How much you have to sell. Run out and you turn people away; hold too much and it spoils.",
+      rows: [["Days of cover", `${stockCover} days at yesterday's trade`],
+             ["Wasted yesterday", formatINR(state.wastageToday)],
+             ["Healthy range", "45% to 82%"]],
+      note: state.inventory < 20 ? "You're nearly out. Restock before your next busy day."
+        : state.inventory > 82 ? "You're overstocked, and the excess is going to waste each day."
+        : "You're in a healthy range. Restocking now would mostly create waste.",
+    },
+    staff: {
+      title: "Staff", big: `${state.staff}%`,
+      what: "How well staffed you are. More staff means you can serve more people without service falling apart.",
+      rows: [["Can serve", `${state.serviceCapacity} people a day`],
+             ["Served yesterday", `${state.customers}`],
+             ["Wage bill", `about ${formatINR(payrollDaily)} a day`]],
+      note: state.customers >= state.serviceCapacity * 0.9
+        ? "You're close to your limit. Hiring would let you serve more, but wages rise straight away."
+        : "You have room to serve more people than turned up. Hiring now would add cost without adding sales.",
+    },
+  };
+  const d = D[metric];
+  return (
+    <Modal onClose={onClose}>
+      <div className="eyebrow">{d.title}</div>
+      <div className="detail-big">{d.big}</div>
+      <p className="detail-what">{d.what}</p>
+      <div className="plan-rows">
+        {d.rows.map(([k, v]) => <div key={k}><span>{k}</span><strong>{v}</strong></div>)}
+      </div>
+      {d.note && <p className="daymsg">{d.note}</p>}
+      <button className="primary" onClick={onClose}>Got it</button>
+    </Modal>
+  );
+}
+
+function EventModal({ event, cash, onChoose }: { event: NonNullable<GameState["currentEvent"]>; cash: number; onChoose: (id: string) => void }) {
+  return (
+    <div className="backdrop">
+      <div className="sheet event-sheet">
+        <div className="eyebrow">Something happened</div>
+        <h2>{event.title}</h2>
+        <p>{event.narrative}</p>
+        <div className="stack">
+          {event.options.map(o => {
+            const tooDear = o.cost > cash;
+            return (
+              <button key={o.id} className={`choice-card ${tooDear ? "locked" : ""}`} disabled={tooDear} onClick={() => onChoose(o.id)}>
+                <div className="choice-head"><strong>{o.title}</strong><span className="dec-cost">{o.cost ? formatINR(o.cost) : "No cost"}</span></div>
+                <small>{tooDear ? "You cannot afford this right now." : o.description}</small>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function Journey({ state }: { state: GameState }) {
+  const pct = Math.min(100, Math.round((state.day / RUN_LENGTH_DAYS) * 100));
+  const earned = state.milestones.filter(m => MILESTONES[m]);
+  const recent = [...earned].reverse().slice(0, 4);
+  return (
+    <div className="journey">
+      <div className="journey-top">
+        <span>Your journey</span>
+        <strong>{earned.length} milestone{earned.length === 1 ? "" : "s"}</strong>
+      </div>
+      <div className="jbar"><i style={{ width: `${Math.max(2, pct)}%` }} /></div>
+      <div className="jmeta">Day {state.day} of {RUN_LENGTH_DAYS} · {state.totalCustomers.toLocaleString("en-IN")} served so far</div>
+      <div className="jchips">
+        {recent.length
+          ? recent.map(m => <span key={m}>{MILESTONES[m]}</span>)
+          : <span className="jempty">Finish your first day to start earning milestones</span>}
+      </div>
+    </div>
   );
 }
 
@@ -389,8 +534,11 @@ function Screen({ children }: { children: ReactNode }) { return <main className=
 function Eyebrow({ children }: { children: ReactNode }) { return <div className="eyebrow">{children}</div>; }
 function H1({ children }: { children: ReactNode }) { return <h1>{children}</h1>; }
 function P({ children }: { children: ReactNode }) { return <p className="lead">{children}</p>; }
-function Metric({ label, value, tone, series }: { label: string; value: string; tone?: "pos" | "neg"; series?: number[] }) {
-  return <div className="metric"><span>{label}</span><strong className={tone ?? ""}>{value}</strong>{series && series.length > 1 && <Spark values={series} />}</div>;
+function Metric({ label, value, tone, series, onClick }: { label: string; value: string; tone?: "pos" | "neg"; series?: number[]; onClick?: () => void }) {
+  return <button className="metric" onClick={onClick} aria-label={`${label}: ${value}. Tap for detail.`}>
+    <span>{label}</span><strong className={tone ?? ""}>{value}</strong>
+    {series && series.length > 1 && <Spark values={series} />}
+  </button>;
 }
 function Modal({ children, onClose }: { children: ReactNode; onClose: () => void }) {
   return <div className="backdrop" onMouseDown={e => e.target === e.currentTarget && onClose()}>
