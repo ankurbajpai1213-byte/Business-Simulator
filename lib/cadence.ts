@@ -29,7 +29,10 @@ export function periodName(day: number): string {
   return s.id === "daily" ? "day" : s.unit;
 }
 
+export type Interruption = { day: number; reason: "stockout" | "cash-critical"; message: string };
+
 export type SpanReport = {
+  interrupted?: Interruption | null;
   days: number;
   fromDay: number;
   toDay: number;
