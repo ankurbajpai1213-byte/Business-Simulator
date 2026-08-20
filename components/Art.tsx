@@ -169,6 +169,10 @@ const D_ICONS: Record<string, ReactNode> = {
   "raise-price": <><path d="M12 20 V5 M6 11 l6 -6 6 6" className="fi-line" /></>,
   "lower-price": <><path d="M12 4 v15 M6 13 l6 6 6 -6" className="fi-line" /></>,
   "no-action": <><circle cx="12" cy="12" r="8" className="fi-line" /><path d="M12 7 v5 l3.5 2" className="fi-line" /></>,
+  "supply-contract": <><path d="M2 12 h10 v6 h-10 z" className="fi-body" /><path d="M12 14 h5 l4 3 v1 h-9 z" className="fi-body" /><circle cx="6" cy="19" r="2" className="fi-line" /><circle cx="16" cy="19" r="2" className="fi-line" /></>,
+  "hire-manager": <><circle cx="12" cy="7" r="3.4" className="fi-body" /><path d="M5 20 q7 -8 14 0 z" className="fi-body" /><path d="M9 3.5 l3 -2 l3 2" className="fi-line" /></>,
+  "extend-hours": <><circle cx="12" cy="12" r="8" className="fi-line" /><path d="M12 7 v5 l4 2" className="fi-line" /><path d="M19 4 l2 -2 M3 4 l-2 -2" className="fi-line" /></>,
+  "loyalty-programme": <><path d="M12 20 s-7 -4.5 -7 -9 a4 4 0 0 1 7 -2.6 a4 4 0 0 1 7 2.6 c0 4.5 -7 9 -7 9 z" className="fi-body" /></>,
 };
 export function DecisionIcon({ id }: { id: string }) {
   return <svg className="dec-icon" viewBox="0 0 24 24" aria-hidden="true">{D_ICONS[id] ?? D_ICONS["no-action"]}</svg>;
