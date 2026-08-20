@@ -43,6 +43,16 @@ export async function POST(request: Request) {
       resolvedEventId = currentState.currentEvent.id;
       resolvedEventOption = body.eventOption;
       currentState = applyEvent(currentState, body.eventOption) as V2State;
+
+      // Ignoring a repair should come back to bite, not vanish.
+      if (resolvedEventId === "equipment-issue" && body.eventOption === "delay-repair") {
+        currentState.pendingDelayedEffects = [
+          ...(currentState.pendingDelayedEffects ?? []),
+          { id: `breakdown-${currentState.day}`, sourceDay: currentState.day, applyOnDay: currentState.day + 9,
+            label: "The equipment you left unrepaired finally failed. A day of trade lost and stock spoiled",
+            cashDelta: -42000, qualityDelta: -10, inventoryDelta: -18, reputationDelta: -4 },
+        ];
+      }
     }
 
     // Accept a list of actions; a single decision stays valid for older clients.
@@ -82,6 +92,13 @@ export async function POST(request: Request) {
       if (due.length) {
         for (const effect of due) nextState = applyDelayedEffect(nextState, effect) as V2State;
         nextState.pendingDelayedEffects = (nextState.pendingDelayedEffects ?? []).filter(e => e.applyOnDay > nextState.day);
+      }
+
+      // Do not simulate a day the business cannot trade through.
+      if (i > 0 && nextState.inventory < 2) {
+        report.interrupted = { day: nextState.day, reason: "stockout", message: "You have run out of stock. The cafe cannot open again until you restock." };
+        report.days = i;
+        break;
       }
 
       const dayNumber = nextState.day;
