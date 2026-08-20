@@ -114,3 +114,14 @@ export const STARTER_PRESETS: StarterPreset[] = [
   { id: "lean", name: "Start tiny", blurb: "A takeaway kiosk. Barely any rent, but nowhere for anyone to sit.", capital: 500000, location: "high-footfall", format: "takeaway", menu: ["filter-coffee", "instant-coffee", "masala-chai", "bun-maska", "vada-pav"] },
 ];
 export function getPreset(id: string): StarterPreset | undefined { return STARTER_PRESETS.find(p => p.id === id); }
+
+/** Short money for tight spaces: ₹30.7L, ₹1.24Cr, ₹8,500. */
+export function formatCompactINR(value: number): string {
+  const n = Math.round(value);
+  const abs = Math.abs(n);
+  const sign = n < 0 ? "-" : "";
+  if (abs >= 10000000) return `${sign}₹${(abs / 10000000).toFixed(abs >= 100000000 ? 0 : 2)}Cr`;
+  if (abs >= 100000) return `${sign}₹${(abs / 100000).toFixed(abs >= 10000000 ? 0 : 1)}L`;
+  if (abs >= 1000) return `${sign}₹${(abs / 1000).toFixed(abs >= 100000 ? 0 : 1)}k`;
+  return `${sign}₹${abs}`;
+}
