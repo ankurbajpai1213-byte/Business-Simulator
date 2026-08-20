@@ -6,7 +6,7 @@ import { CafeScene, DecisionIcon, Spark } from "@/components/Art";
 import { RUN_LENGTH_DAYS, periodName, slotsForTurn, stageFor, turnLabel, type SpanReport } from "@/lib/cadence";
 import {
   FORMAT_OPTIONS, LOCATION_OPTIONS,
-  formatINR, getAvailableDecisions,
+  formatINR, formatCompactINR, getAvailableDecisions,
   type BusinessFormat, type Decision, type GameState, type DayRecord,
   type Location, type MenuItemId,
 } from "@/lib/simulation";
@@ -197,12 +197,12 @@ export default function Home() {
         <CafeScene format={state.format} busy={state.serviceCapacity > 0 ? state.customers / state.serviceCapacity : 0} raining={state.currentEvent?.id === "rain"} />
 
         <div className="metrics">
-          <Metric label="Cash" value={formatINR(state.cash)} series={series("cash")} />
+          <Metric label="Cash" value={formatCompactINR(state.cash)} series={series("cash")} />
           <Metric label="Customers" value={state.customers.toLocaleString("en-IN")} series={series("customers")} />
-          <Metric label="Profit" value={formatINR(state.profit)} tone={state.profit >= 0 ? "pos" : "neg"} series={series("profit")} />
-          <Metric label="Reputation" value={`${Math.round(state.reputation)}/100`} series={series("reputation")} />
-          <Metric label="Stock" value={`${Math.round(state.inventory)}/100`} tone={state.inventory < 20 ? "neg" : undefined} series={series("inventory")} />
-          <Metric label="Staff" value={`${state.staff}/100`} />
+          <Metric label="Profit" value={formatCompactINR(state.profit)} tone={state.profit >= 0 ? "pos" : "neg"} series={series("profit")} />
+          <Metric label="Rep" value={`${Math.round(state.reputation)}%`} series={series("reputation")} />
+          <Metric label="Stock" value={`${Math.round(state.inventory)}%`} tone={state.inventory < 20 ? "neg" : undefined} series={series("inventory")} />
+          <Metric label="Staff" value={`${state.staff}%`} />
         </div>
 
         {state.currentEvent && (
