@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
+import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
 
 const PLAYER_COOKIE = "bs_player";
 const NAME_COOKIE = "bs_player_name";
@@ -19,6 +20,19 @@ export async function POST(request: Request) {
     if (!name) return NextResponse.json({ error: "Please enter your name." }, { status: 400 });
     const cookieStore = await cookies();
     const id = cookieStore.get(PLAYER_COOKIE)?.value || crypto.randomUUID();
+
+    try {
+      const supabase = getSupabaseAdmin();
+      await supabase
+        .from("players")
+        .upsert(
+          { id, display_name: name, last_seen_at: new Date().toISOString() },
+          { onConflict: "id" }
+        );
+    } catch (dbError) {
+      console.error("[player] could not persist player row", dbError);
+    }
+
     const response = NextResponse.json({ player: { id, display_name: name } });
     response.cookies.set(PLAYER_COOKIE, id, { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "lax", path: "/", maxAge: COOKIE_MAX_AGE });
     response.cookies.set(NAME_COOKIE, name, { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "lax", path: "/", maxAge: COOKIE_MAX_AGE });
