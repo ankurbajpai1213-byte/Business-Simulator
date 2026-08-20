@@ -185,17 +185,17 @@ p.lead{font-size:16px;color:var(--ink);opacity:.82}
 .game-wrap{flex:1;min-height:0;display:flex;flex-direction:column;gap:8px}
 .bar{margin-bottom:0;flex-shrink:0}
 .cafe{font-size:16px}
-.scene{flex-shrink:0;margin-bottom:0;max-height:15dvh;object-fit:contain}
-.metrics{grid-template-columns:repeat(6,minmax(0,1fr));gap:6px;margin-bottom:0;flex-shrink:0}
-.metric{padding:6px 4px;border-radius:9px;text-align:center;display:flex;flex-direction:column;justify-content:center}
-.metric span{font-size:9px;letter-spacing:-.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.metric strong{font-size:13px;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;overflow-wrap:normal}
-.metric .spark{display:none}
+.scene{flex-shrink:0;margin-bottom:0;max-height:13dvh;object-fit:contain}
+.metrics{grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin-bottom:0;flex-shrink:0}
+.metric{padding:7px 9px;border-radius:11px;text-align:left;display:flex;flex-direction:column;justify-content:center}
+.metric span{font-size:10.5px;letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.metric strong{font-size:16px;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;overflow-wrap:normal;line-height:1.15}
+.metric .spark{display:block;height:13px;margin-top:3px;opacity:.85}
 .play-card{flex:1;min-height:0;padding:12px 12px;gap:0}
 .play-head{flex-shrink:0}
 .play-head h2{font-size:15.5px;margin-bottom:3px;line-height:1.25}
 .slotline{font-size:11.5px;margin:0 0 7px}
-.dec-grid{flex:1;min-height:0;overflow-y:auto;display:grid;grid-template-columns:1fr 1fr;gap:5px;align-content:start;margin:0 -3px;padding:0 3px 2px}
+.dec-grid{flex-shrink:0;display:grid;grid-template-columns:1fr 1fr;gap:5px;align-content:start;margin:0 -3px;padding:0 3px 2px}
 .choice-card.dec{flex-direction:row;align-items:center;gap:8px;padding:8px 9px;border-radius:11px;min-height:0}
 .choice-card.dec .dec-icon{width:18px;height:18px}
 .choice-card.dec strong{font-size:12.5px;line-height:1.15}
@@ -204,11 +204,6 @@ p.lead{font-size:16px;color:var(--ink);opacity:.82}
 .choice-card.dec .dec-cost{font-size:10px;margin-top:0;color:var(--muted)}
 .choice-card.dec .choice-head{width:100%}
 .play-card .primary{flex-shrink:0;margin-top:8px;padding:12px}
-.event{flex-shrink:0;padding:13px}
-.event h2{font-size:15px}
-.event p{font-size:12.5px;margin-bottom:8px}
-.event .choice-card{padding:10px}
-.event .choice-card small{font-size:11.5px}
 
 /* setup: compact menu grid */
 .group-body{grid-template-columns:1fr 1fr;display:grid;gap:5px}
@@ -235,7 +230,8 @@ p.lead{font-size:16px;color:var(--ink);opacity:.82}
 .art-row em{font-size:11px;margin-top:5px}
 
 @media(min-height:780px){
-  .metric span{font-size:10px}.metric strong{font-size:14.5px}
+  .metric span{font-size:11px}.metric strong{font-size:17px}
+  .metric .spark{height:16px}
   .choice-card.dec strong{font-size:13.5px}
   .choice-card.dec{padding:10px}
   .scene{max-height:18dvh}
@@ -245,3 +241,31 @@ p.lead{font-size:16px;color:var(--ink);opacity:.82}
   .metric strong{font-size:12px}
   .choice-card.dec{padding:7px 8px}
 }
+
+/* journey panel fills the space under the actions */
+.journey{flex:1;min-height:0;overflow:hidden;margin-top:9px;padding:10px 11px;background:var(--tint);border-radius:12px;display:flex;flex-direction:column;gap:5px}
+.journey-top{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.journey-top span{font-size:10.5px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--muted)}
+.journey-top strong{font-size:12px;font-weight:650}
+.jbar{height:5px;border-radius:3px;background:#e2dbcf;overflow:hidden}
+.jbar i{display:block;height:100%;background:var(--accent);border-radius:3px;transition:width .4s ease}
+.jmeta{font-size:11px;color:var(--muted)}
+.jchips{display:flex;flex-wrap:wrap;gap:4px;overflow:hidden;min-height:0}
+.jchips span{background:var(--card);border:1px solid var(--line-2);border-radius:999px;padding:4px 9px;font-size:10.5px;font-weight:600;white-space:nowrap}
+.jchips .jempty{border:0;background:none;padding:4px 0;color:var(--muted);font-weight:400;white-space:normal}
+@media(max-height:660px){.journey{display:none}.dec-grid{flex:1;min-height:0;overflow-y:auto}}
+
+/* events interrupt, then get out of the way */
+.event-sheet h2{font-size:20px;margin-bottom:6px}
+.event-sheet p{font-size:14px;margin-bottom:14px}
+.event-sheet .choice-card{padding:13px}
+.event-sheet .choice-card small{font-size:12.5px;margin-top:4px}
+.event-chip{display:flex;align-items:center;gap:7px;width:100%;text-align:left;background:var(--tint);border:1px solid var(--line-2);border-radius:10px;padding:7px 10px;margin-bottom:8px}
+.event-chip span{font-size:10.5px;color:var(--muted);font-weight:650;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:40%}
+.event-chip strong{font-size:11.5px;font-weight:650;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.event-chip em{font-style:normal;font-size:10.5px;color:var(--muted);text-decoration:underline;flex-shrink:0}
+.metric{border:1px solid var(--line);font:inherit;color:inherit;cursor:pointer;position:relative;transition:.12s ease}
+.metric:active{transform:scale(.98)}
+.metric::after{content:"";position:absolute;top:6px;right:6px;width:4px;height:4px;border-radius:50%;background:var(--line-2)}
+.detail-big{font-size:30px;font-weight:700;letter-spacing:-.02em;margin:2px 0 8px}
+.detail-what{font-size:14.5px;line-height:1.55;color:var(--ink);opacity:.85;margin-bottom:14px}
