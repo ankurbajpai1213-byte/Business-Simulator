@@ -3,7 +3,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import Setup from "@/components/Setup";
 import { CafeScene, DecisionIcon, Spark } from "@/components/Art";
-import { RUN_LENGTH_DAYS, periodName, stageFor, turnLabel, type SpanReport } from "@/lib/cadence";
+import { RUN_LENGTH_DAYS, periodName, slotsForTurn, stageFor, turnLabel, type SpanReport } from "@/lib/cadence";
 import {
   FORMAT_OPTIONS, LOCATION_OPTIONS,
   formatINR, getAvailableDecisions,
@@ -30,9 +30,9 @@ export default function Home() {
   const [name, setName] = useState("");
   const [cafeName, setCafeName] = useState("");
   const [state, setState] = useState<GameState | null>(null);
-  const [selected, setSelected] = useState<Decision | null>(null);
+  const [picked, setPicked] = useState<Decision[]>([]);
   const [eventOption, setEventOption] = useState<string | null>(null);
-  const [summary, setSummary] = useState<{ before: GameState; after: GameState; decision: Decision; report?: SpanReport } | null>(null);
+  const [summary, setSummary] = useState<{ before: GameState; after: GameState; decision: Decision; picked: Decision[]; report?: SpanReport } | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [historyOpen, setHistoryOpen] = useState(false);
@@ -80,16 +80,16 @@ export default function Home() {
   };
 
   const finishDay = async () => {
-    if (!state || !selected || (state.currentEvent && !eventOption)) return;
-    const before = state; const chosen = selected;
+    if (!state || picked.length === 0 || (state.currentEvent && !eventOption)) return;
+    const before = state; const chosen = [...picked];
     setBusy(true); setError("");
     try {
-      const r = await fetch("/api/simulate-turn", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ decision: chosen, eventOption }) });
-      const d = await r.json(); if (!r.ok) throw new Error(d.error || "Unable to finish the day.");
+      const r = await fetch("/api/simulate-turn", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ decisions: chosen, decision: chosen[0], eventOption }) });
+      const d = await r.json(); if (!r.ok) throw new Error(d.error || "Unable to finish the turn.");
       const after = d.state as GameState;
-      setState(after); setSelected(null); setEventOption(null);
-      setSummary({ before, after, decision: chosen, report: d.report as SpanReport | undefined });
-    } catch (e) { setError(e instanceof Error ? e.message : "Unable to finish the day."); }
+      setState(after); setPicked([]); setEventOption(null);
+      setSummary({ before, after, decision: chosen.find(x => x !== "no-action") ?? chosen[0], picked: chosen, report: d.report as SpanReport | undefined });
+    } catch (e) { setError(e instanceof Error ? e.message : "Unable to finish the turn."); }
     finally { setBusy(false); }
   };
 
@@ -99,7 +99,7 @@ export default function Home() {
     try {
       const r = await fetch("/api/game/new", { method: "POST" }); const d = await r.json();
       if (!r.ok) throw new Error(d.error);
-      setState(d.state as GameState); setCafeName(""); setSelected(null); setEventOption(null);
+      setState(d.state as GameState); setCafeName(""); setPicked([]); setEventOption(null);
       setSummary(null); setScreen("cafe-name");
     } catch (e) { setError(e instanceof Error ? e.message : "Unable to start a new game."); }
     finally { setBusy(false); }
@@ -176,12 +176,13 @@ export default function Home() {
   const series = (k: "cash" | "customers" | "profit" | "reputation" | "inventory") =>
     [...state.dayHistory.slice(-7).map(r => Number(k === "cash" ? r.cashAfter : k === "customers" ? r.customers : k === "profit" ? r.profit : k === "reputation" ? r.reputation : r.inventory))];
   const available = new Set(getAvailableDecisions(state));
+  const slots = slotsForTurn(state.day);
   const location = LOCATION_OPTIONS.find(x => x.id === state.location);
   const format = FORMAT_OPTIONS.find(x => x.id === state.format);
 
   return (
     <main className="shell">
-      <div className="wrap">
+      <div className="wrap game-wrap">
         <header className="bar">
           <div>
             <div className="cafe">{state.businessName || "Your cafe"}</div>
@@ -221,26 +222,38 @@ export default function Home() {
           </section>
         )}
 
-        <section className="card">
-          <Eyebrow>Today</Eyebrow>
+        <section className="card play-card">
+          <div className="play-head">
+          <Eyebrow>{turnLabel(state.day)}</Eyebrow>
           <h2>{stageFor(state.day).id === "daily" ? `How will you run ${state.businessName || "the cafe"} today?` : `What\u2019s your plan for the next ${periodName(state.day)}?`}</h2>
-          <div className="stack">
+          <div className="slotline">
+            {slots > 1
+              ? <>Choose up to <strong>{slots}</strong> things to do this {periodName(state.day)}. {picked.length} chosen.</>
+              : <>Choose <strong>one</strong> thing to do today.</>}
+          </div>
+          </div>
+          <div className="dec-grid">
             {DECISIONS.map(([id, title, desc, cost]) => {
-              const ok = available.has(id);
+              const on = picked.includes(id);
+              const blockedByPrice = (id === "raise-price" && picked.includes("lower-price")) || (id === "lower-price" && picked.includes("raise-price"));
+              const full = !on && picked.length >= slots;
+              const ok = available.has(id) && !blockedByPrice && !full;
+              const why = !available.has(id) ? "Not available right now" : blockedByPrice ? "You already changed prices this turn" : full ? "No slots left this turn" : desc;
               return (
-                <button key={id} className={`choice-card dec ${selected === id ? "selected" : ""} ${!ok ? "locked" : ""}`}
-                  onClick={() => ok && setSelected(id)} disabled={busy || !ok}>
+                <button key={id} className={`choice-card dec ${on ? "selected" : ""} ${!ok && !on ? "locked" : ""}`}
+                  onClick={() => { if (on) setPicked(p => p.filter(x => x !== id)); else if (ok) setPicked(p => [...p, id]); }}
+                  disabled={busy || (!ok && !on)}>
                   <DecisionIcon id={id} />
                   <div className="dec-text">
-                    <div className="choice-head"><strong>{title}</strong>{selected === id && <span className="tick">✓</span>}</div>
-                    <small>{ok ? desc : "Not available right now"}</small>
+                    <div className="choice-head"><strong>{title}</strong>{on && <span className="tick">✓</span>}</div>
+                    <small>{on ? desc : why}</small>
                   </div>
                   <span className="dec-cost">{cost}</span>
                 </button>
               );
             })}
           </div>
-          <button className="primary" onClick={finishDay} disabled={busy || !selected || !!(state.currentEvent && !eventOption)}>
+          <button className="primary" onClick={finishDay} disabled={busy || picked.length === 0 || !!(state.currentEvent && !eventOption)}>
             {busy ? "Playing it out…" : stageFor(state.day).id === "daily" ? "Finish the day" : `Run the ${periodName(state.day)}`}
           </button>
           {error && <div className="notice">{error}</div>}
@@ -254,7 +267,7 @@ export default function Home() {
   );
 }
 
-function DaySummary({ before, after, decision, report, onClose }: { before: GameState; after: GameState; decision: Decision; report?: SpanReport; onClose: () => void }) {
+function DaySummary({ before, after, decision, picked, report, onClose }: { before: GameState; after: GameState; decision: Decision; picked: Decision[]; report?: SpanReport; onClose: () => void }) {
   const multi = !!report && report.days > 1;
   const dCustomers = after.customers - before.customers;
   const dProfit = Math.round(after.profit - before.profit);
@@ -265,8 +278,17 @@ function DaySummary({ before, after, decision, report, onClose }: { before: Game
   const custSeries = [...after.dayHistory.slice(-14).map(r => r.customers)];
   const unit = report ? (report.days === 7 ? "week" : report.days === 14 ? "fortnight" : report.days >= 28 ? "month" : `${report.days} days`) : "day";
 
+  const acted = picked.filter(p => p !== "no-action");
+  const listed = acted.map(p => decisionName(p).toLowerCase());
+  const phrase = listed.length > 1 ? `${listed.slice(0, -1).join(", ")} and ${listed[listed.length - 1]}` : listed[0];
+
   const verdict = (() => {
-    const d = decisionName(decision).toLowerCase();
+    const d = phrase ?? decisionName(decision).toLowerCase();
+    if (multi && report && acted.length > 1) {
+      const avg = Math.round(report.customers / report.days);
+      const money = report.profit >= 0 ? `made ${formatINR(Math.round(report.profit))}` : `lost ${formatINR(Math.abs(Math.round(report.profit)))}`;
+      return `You chose to ${d}. Over the ${unit} the cafe ${money}, averaging ${avg} customers a day.`;
+    }
     if (multi && report) {
       const avg = Math.round(report.customers / report.days);
       const money = report.profit >= 0 ? `made ${formatINR(Math.round(report.profit))}` : `lost ${formatINR(Math.abs(Math.round(report.profit)))}`;
