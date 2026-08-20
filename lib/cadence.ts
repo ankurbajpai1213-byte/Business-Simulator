@@ -41,3 +41,11 @@ export type SpanReport = {
   profitableDays: number;
   lossDays: number;
 };
+
+/** How many actions the player may take in one turn. */
+export function slotsForTurn(day: number): number {
+  const id = stageFor(day).id;
+  if (id === "daily") return 1;
+  if (id === "weekly") return 2;
+  return 3;
+}
