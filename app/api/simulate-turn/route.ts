@@ -126,6 +126,15 @@ export async function POST(request: Request) {
           stop = { day: nextState.day, reason: "cash-critical", message: "Cash is running dangerously low. At this rate the business has only a few days left." };
         }
         if (stop) { report.interrupted = stop; report.days = i + 1; break; }
+
+        // Something happening mid-period should interrupt, not wait politely for the turn to end.
+        const midEvent = generateEvent(nextState);
+        if (midEvent) {
+          nextState.currentEvent = midEvent;
+          report.interrupted = { day: nextState.day, reason: "event", message: `${midEvent.title}. This needs your attention before the ${span >= 28 ? "month" : span >= 14 ? "fortnight" : "week"} can continue.` };
+          report.days = i + 1;
+          break;
+        }
       }
     }
 
@@ -145,7 +154,7 @@ export async function POST(request: Request) {
       ]),
     ];
 
-    const event = generateEvent(nextState);
+    const event = nextState.currentEvent ?? generateEvent(nextState);
     nextState.currentEvent = event;
 
     const status = nextState.cash <= 0
