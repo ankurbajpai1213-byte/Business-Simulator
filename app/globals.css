@@ -317,3 +317,25 @@ p.lead{font-size:16px;color:var(--ink);opacity:.82}
 .budget-nums strong{transition:color .2s ease}
 .hist-event b{font-weight:700}
 @media(prefers-reduced-motion:reduce){.budget-bar.bump{animation:none}}
+
+/* ---------- game feel ---------- */
+.pop{animation:popin .26s cubic-bezier(.34,1.56,.64,1) backwards}
+@keyframes popin{from{opacity:0;transform:translateY(6px) scale(.97)}to{opacity:1;transform:none}}
+.choice-card{transition:transform .12s cubic-bezier(.34,1.56,.64,1),border-color .15s,background .15s}
+.choice-card:active:not(:disabled){transform:scale(.96)}
+.choice-card.selected{animation:tick .3s cubic-bezier(.34,1.56,.64,1)}
+@keyframes tick{0%{transform:scale(1)}45%{transform:scale(1.035)}100%{transform:scale(1)}}
+.primary{transition:transform .12s cubic-bezier(.34,1.56,.64,1),opacity .15s}
+.primary:active:not(:disabled){transform:scale(.975)}
+.ghost:active,.back-chip:active{transform:scale(.94)}
+
+.strat-flag{background:#efe6d6;color:#8a6a45;border-radius:5px;padding:2px 5px;font-size:8.5px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;flex-shrink:0}
+
+.burst{position:absolute;left:0;right:0;top:0;height:90px;pointer-events:none;overflow:hidden}
+.burst i{position:absolute;top:18px;font-style:normal;font-weight:800;font-size:15px;color:#c9a44f;opacity:0;animation:coinup 1.1s ease-out forwards}
+@keyframes coinup{0%{opacity:0;transform:translateY(10px) scale(.6)}25%{opacity:1}100%{opacity:0;transform:translateY(-46px) scale(1.05)}}
+.sheet{position:relative;animation:sheetin .3s cubic-bezier(.22,1,.36,1)}
+@keyframes sheetin{from{transform:translateY(14px);opacity:0}to{transform:none;opacity:1}}
+.backdrop{animation:fadein .2s ease}
+@keyframes fadein{from{opacity:0}to{opacity:1}}
+@media(prefers-reduced-motion:reduce){.pop,.burst i,.sheet,.backdrop,.choice-card.selected{animation:none}}
