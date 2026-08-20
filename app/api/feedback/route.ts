@@ -12,7 +12,18 @@ export async function POST(request: Request) {
     const playerId = (await cookies()).get(PLAYER_COOKIE)?.value ?? null;
     if (!sessionId) return NextResponse.json({ error: "No active game session." }, { status: 401 });
     const supabase = getSupabaseAdmin();
-    const { error } = await supabase.from("game_events").insert({ session_id: sessionId, day: Number(body.sessionDays ?? 0), event_type: body.skipped ? "beta_feedback_skipped" : "beta_feedback", payload: { playerId, ease: body.ease ?? null, gameplay: body.gameplay ?? null, realism: body.realism ?? null, decisions: body.decisions ?? null, continuePlaying: body.continuePlaying ?? null, comment: body.comment?.slice(0, 2000) ?? null, skipped: Boolean(body.skipped) } });
+    const { error } = await supabase.from("beta_feedback").insert({
+      session_id: sessionId,
+      player_id: playerId,
+      day: Number(body.sessionDays ?? 0),
+      ease: body.ease ?? null,
+      gameplay: body.gameplay ?? null,
+      realism: body.realism ?? null,
+      decisions: body.decisions ?? null,
+      continue_playing: body.continuePlaying ?? null,
+      comment: body.comment?.slice(0, 2000) ?? null,
+      skipped: Boolean(body.skipped),
+    });
     if (error) throw error;
     return NextResponse.json({ stored: true });
   } catch (error) {
