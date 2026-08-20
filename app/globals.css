@@ -195,7 +195,7 @@ p.lead{font-size:16px;color:var(--ink);opacity:.82}
 .play-head{flex-shrink:0}
 .play-head h2{font-size:15.5px;margin-bottom:3px;line-height:1.25}
 .slotline{font-size:11.5px;margin:0 0 7px}
-.dec-grid{flex-shrink:0;display:grid;grid-template-columns:1fr 1fr;gap:5px;align-content:start;margin:0 -3px;padding:0 3px 2px}
+.dec-grid{flex:1 1 auto;min-height:0;overflow-y:auto;display:grid;grid-template-columns:1fr 1fr;gap:5px;align-content:start;margin:0 -3px;padding:0 3px 2px}
 .choice-card.dec{flex-direction:row;align-items:center;gap:8px;padding:8px 9px;border-radius:11px;min-height:0}
 .choice-card.dec .dec-icon{width:18px;height:18px}
 .choice-card.dec strong{font-size:12.5px;line-height:1.15}
@@ -243,7 +243,7 @@ p.lead{font-size:16px;color:var(--ink);opacity:.82}
 }
 
 /* journey panel fills the space under the actions */
-.journey{flex:1;min-height:0;overflow:hidden;margin-top:9px;padding:10px 11px;background:var(--tint);border-radius:12px;display:flex;flex-direction:column;gap:5px}
+.journey{flex:1;min-height:64px;overflow:hidden;margin-top:9px;padding:10px 11px;background:var(--tint);border-radius:12px;display:flex;flex-direction:column;gap:5px}
 .journey-top{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
 .journey-top span{font-size:10.5px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--muted)}
 .journey-top strong{font-size:12px;font-weight:650}
@@ -253,7 +253,7 @@ p.lead{font-size:16px;color:var(--ink);opacity:.82}
 .jchips{display:flex;flex-wrap:wrap;gap:4px;overflow:hidden;min-height:0}
 .jchips span{background:var(--card);border:1px solid var(--line-2);border-radius:999px;padding:4px 9px;font-size:10.5px;font-weight:600;white-space:nowrap}
 .jchips .jempty{border:0;background:none;padding:4px 0;color:var(--muted);font-weight:400;white-space:normal}
-@media(max-height:660px){.journey{display:none}.dec-grid{flex:1;min-height:0;overflow-y:auto}}
+@media(max-height:700px){.journey{display:none}}
 
 /* events interrupt, then get out of the way */
 .event-sheet h2{font-size:20px;margin-bottom:6px}
@@ -274,3 +274,30 @@ p.lead{font-size:16px;color:var(--ink);opacity:.82}
 .interrupt span{display:block;font-size:13px;color:#8c3d2c;opacity:.9;line-height:1.5}
 .budget-nums.solo{grid-template-columns:1fr 1fr}
 .budget-hint strong{color:var(--muted);font-weight:600}
+
+/* ---------- affordance + motion ---------- */
+.metric::after{display:none}
+.tapdot{position:absolute;top:5px;right:5px;width:11px;height:11px;border-radius:50%;background:var(--line);display:grid;place-items:center}
+.tapdot::before{content:"i";font-size:8px;font-style:normal;font-weight:800;color:var(--muted);line-height:1}
+.metric{overflow:hidden}
+.metric.flash{animation:flashbg .6s ease-out}
+@keyframes flashbg{0%{background:#efe6d6}100%{background:var(--card)}}
+.metric:active{transform:scale(.97)}
+
+.scene-tap{display:block;width:100%;padding:0;border:0;background:none;position:relative;flex-shrink:0}
+.scene-hint{position:absolute;left:10px;bottom:8px;background:rgba(255,255,255,.9);border-radius:999px;padding:3px 9px;font-size:10.5px;font-weight:600;color:var(--muted)}
+.scene-tap:active{transform:scale(.995)}
+
+.promo{text-align:center}
+.promo-mark{width:52px;height:52px;margin:0 auto 12px;display:grid;place-items:center;border-radius:16px;background:var(--tint);color:#b08968;font-size:24px;animation:pulse 1.6s ease-in-out infinite}
+@keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.07)}}
+.promo-steps{display:flex;align-items:center;justify-content:center;gap:9px;margin:14px 0}
+.promo-steps span{padding:8px 12px;border-radius:10px;font-size:12.5px;font-weight:650}
+.promo-steps .done{background:var(--tint);color:var(--muted);text-decoration:line-through}
+.promo-steps .now{background:var(--accent);color:#fff}
+.promo-steps i{font-style:normal;color:var(--muted)}
+.promo-note{font-size:13px;margin-top:4px}
+
+.ledger-head{font-size:10.5px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin:16px 0 7px}
+.hist-event{margin-top:5px;font-size:11px;color:#8a6f4e;background:#f5efe4;border-radius:8px;padding:4px 8px;text-transform:capitalize}
+@media(prefers-reduced-motion:reduce){.promo-mark,.metric.flash{animation:none}}
