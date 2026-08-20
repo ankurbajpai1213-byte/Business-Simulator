@@ -1,10 +1,12 @@
 "use client";
 
 import { useEffect, useState, type ReactNode } from "react";
+import Setup from "@/components/Setup";
 import {
-  FORMAT_OPTIONS, LOCATION_OPTIONS, MENU_ITEMS, STARTER_PRESETS,
+  FORMAT_OPTIONS, LOCATION_OPTIONS,
   formatINR, getAvailableDecisions,
-  type Decision, type GameState, type DayRecord, type StarterPresetId,
+  type BusinessFormat, type Decision, type GameState, type DayRecord,
+  type Location, type MenuItemId,
 } from "@/lib/simulation";
 
 const DECISIONS: Array<[Decision, string, string, string]> = [
@@ -18,14 +20,13 @@ const DECISIONS: Array<[Decision, string, string, string]> = [
 ];
 const decisionName = (id: Decision) => DECISIONS.find(x => x[0] === id)?.[1] ?? "your decision";
 
-type Screen = "loading" | "welcome" | "cafe-name" | "style" | "game";
+type Screen = "loading" | "welcome" | "cafe-name" | "setup" | "game";
 
 export default function Home() {
   const [screen, setScreen] = useState<Screen>("loading");
   const [player, setPlayer] = useState<{ id: string; display_name: string } | null>(null);
   const [name, setName] = useState("");
   const [cafeName, setCafeName] = useState("");
-  const [preset, setPreset] = useState<StarterPresetId>("steady");
   const [state, setState] = useState<GameState | null>(null);
   const [selected, setSelected] = useState<Decision | null>(null);
   const [eventOption, setEventOption] = useState<string | null>(null);
@@ -66,10 +67,10 @@ export default function Home() {
     finally { setBusy(false); }
   };
 
-  const openCafe = async () => {
+  const openCafe = async (cfg: { capital: number; location: Location; format: BusinessFormat; menu: MenuItemId[] }) => {
     setBusy(true); setError("");
     try {
-      const r = await fetch("/api/game/setup", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ businessName: cafeName.trim(), preset }) });
+      const r = await fetch("/api/game/setup", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ businessName: cafeName.trim(), ...cfg }) });
       const d = await r.json(); if (!r.ok) throw new Error(d.error || "Unable to open your cafe.");
       setState(d.state as GameState); setScreen("game");
     } catch (e) { setError(e instanceof Error ? e.message : "Unable to open your cafe."); }
@@ -130,8 +131,8 @@ export default function Home() {
       <H1>What&rsquo;s your cafe called?</H1>
       <P>Give it a name. It&rsquo;s yours from here on.</P>
       <input className="input" value={cafeName} maxLength={40} autoFocus
-        onChange={e => setCafeName(e.target.value)} onKeyDown={e => e.key === "Enter" && cafeName.trim() && setScreen("style")} placeholder="Brew &amp; Bean" />
-      <button className="primary" onClick={() => setScreen("style")} disabled={!cafeName.trim()}>Continue</button>
+        onChange={e => setCafeName(e.target.value)} onKeyDown={e => e.key === "Enter" && cafeName.trim() && setScreen("setup")} placeholder="Brew &amp; Bean" />
+      <button className="primary" onClick={() => setScreen("setup")} disabled={!cafeName.trim()}>Continue</button>
       <div className="disclaimer">
         <strong>This is a game, not a business prediction tool.</strong>
         <span>It uses simplified economics so you can experiment and see how choices play out. Don&rsquo;t use it as financial or business advice.</span>
@@ -140,27 +141,8 @@ export default function Home() {
     </Screen>
   );
 
-  if (screen === "style") return (
-    <Screen>
-      <Eyebrow>Step 2 of 2</Eyebrow>
-      <H1>{cafeName} opens tomorrow.</H1>
-      <P>Pick how you want to start. You can change all of this later, inside the game.</P>
-      <div className="stack">
-        {STARTER_PRESETS.map(p => {
-          const loc = LOCATION_OPTIONS.find(l => l.id === p.location);
-          return (
-            <button key={p.id} className={`choice-card ${preset === p.id ? "selected" : ""}`} onClick={() => setPreset(p.id)}>
-              <div className="choice-head"><strong>{p.name}</strong>{preset === p.id && <span className="tick">Selected</span>}</div>
-              <small>{p.blurb}</small>
-              <em>{formatINR(p.capital)} to start · {formatINR(loc?.rentMonthly ?? 0)}/month rent</em>
-            </button>
-          );
-        })}
-      </div>
-      <button className="primary" onClick={openCafe} disabled={busy}>{busy ? "Opening…" : "Open the doors"}</button>
-      <button className="text-button" onClick={() => setScreen("cafe-name")}>Back</button>
-      {error && <div className="notice">{error}</div>}
-    </Screen>
+  if (screen === "setup") return (
+    <Setup cafeName={cafeName} busy={busy} error={error} onBack={() => setScreen("cafe-name")} onOpen={openCafe} />
   );
 
   if (!state) return <Screen><H1>Something went wrong.</H1><P>{error || "Please refresh."}</P></Screen>;
