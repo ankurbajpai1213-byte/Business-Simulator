@@ -124,7 +124,8 @@ export function FoodIcon({ id }: { id: string }) {
 
 /* ---------- game screen art ---------- */
 
-export function CafeScene({ format, busy, raining }: { format: string; busy: number; raining: boolean }) {
+export function CafeScene({ format, busy, raining, weather = "clear" }: { format: string; busy: number; raining: boolean; weather?: string }) {
+  const wet = raining || weather === "rain";
   // busy: 0..1 share of capacity being used -> how many figures appear
   const people = Math.min(7, Math.round(busy * 7));
   const seats = format === "takeaway" ? 0 : format === "full-cafe" ? 6 : 4;
@@ -132,9 +133,11 @@ export function CafeScene({ format, busy, raining }: { format: string; busy: num
     ? [[34,54],[58,54],[82,54],[34,70],[58,70],[82,70]]
     : [[40,58],[70,58],[40,72],[70,72]];
   return (
-    <svg className="scene" viewBox="0 0 160 96" role="img" aria-label={raining ? "Your cafe in the rain" : busy > .7 ? "Your cafe, busy" : busy > .3 ? "Your cafe, ticking along" : "Your cafe, quiet"}>
+    <svg className="scene" viewBox="0 0 160 96" role="img" aria-label={wet ? "Your cafe in the rain" : busy > .7 ? "Your cafe, busy" : busy > .3 ? "Your cafe, ticking along" : "Your cafe, quiet"}>
       <rect x="0" y="0" width="160" height="96" className="sky" />
-      {!raining && <circle cx="136" cy="18" r="9" className="sun" />}
+      {!wet && weather !== "cold" && <circle cx="136" cy="18" r="9" className={weather === "hot" ? "sun hot" : "sun"} />}
+      {weather === "cold" && <g className="clouds"><ellipse cx="120" cy="16" rx="16" ry="7" /><ellipse cx="136" cy="19" rx="13" ry="6" /></g>}
+      {weather === "festival" && <g className="bunting">{[20,44,68,92,116].map((x,i)=><g key={x}><path d={`M${x} 6 L${x+12} 12`} /><path d={`M${x+4} 8 l4 6 l4 -6 z`} className={i%2?"flagA":"flagB"} /></g>)}</g>}
       <rect x="14" y="24" width="132" height="58" className="bld-main" rx="4" />
       <rect x="14" y="24" width="132" height="9" className="awning" />
       <rect x="14" y="78" width="132" height="4" className="counter" />
@@ -150,7 +153,7 @@ export function CafeScene({ format, busy, raining }: { format: string; busy: num
         </g>;
       })}
       {people === 0 && <text x="80" y="60" className="empty-note" textAnchor="middle">quiet today</text>}
-      {raining && Array.from({ length: 16 }).map((_, i) => (
+      {wet && Array.from({ length: 16 }).map((_, i) => (
         <line key={i} className="rain" style={{ animationDelay: `${(i % 5) * 0.14}s` }}
           x1={6 + i * 10} y1="0" x2={2 + i * 10} y2="10" />
       ))}
