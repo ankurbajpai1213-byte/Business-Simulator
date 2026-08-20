@@ -3,7 +3,7 @@ import { cookies } from "next/headers";
 import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
 import { applyDecision, advanceDay, applyEvent, generateEvent, isDecisionAvailable, type Decision, type GameEventId, type GameState } from "@/lib/simulation";
 import { applyDelayedEffect, createDelayedEffects, shouldShowMilestone, type DelayedEffect } from "@/lib/simulation-engine-v2";
-import { daysThisTurn, slotsForTurn, RUN_LENGTH_DAYS, type SpanReport } from "@/lib/cadence";
+import { daysThisTurn, slotsForTurn, RUN_LENGTH_DAYS, type Interruption, type SpanReport } from "@/lib/cadence";
 
 const SESSION_COOKIE = "bs_session";
 const decisions = new Set<Decision>(["raise-price", "lower-price", "marketing", "hire", "quality", "inventory", "no-action"]);
@@ -69,11 +69,11 @@ export async function POST(request: Request) {
     const span = daysThisTurn(expectedDay);
     const fromDay = currentState.day;
     let nextState = currentState;
-    const report: SpanReport = { days: span, fromDay, toDay: fromDay, revenue: 0, profit: 0, customers: 0, bestDay: null, worstDay: null, profitableDays: 0, lossDays: 0 };
+    const report: SpanReport = { interrupted: null, days: span, fromDay, toDay: fromDay, revenue: 0, profit: 0, customers: 0, bestDay: null, worstDay: null, profitableDays: 0, lossDays: 0 };
 
     for (let i = 0; i < span; i += 1) {
       // Immediate spend and any event weather only land on the first day of the span.
-      const dayDecision = i === 0 ? primary : "no-action";
+      const dayDecision = primary;
       const spend = i === 0 ? turnSpend : 0;
       const rain = i === 0 ? rainToday : false;
 
@@ -98,6 +98,18 @@ export async function POST(request: Request) {
       if (!report.worstDay || snapshot.profit < report.worstDay.profit) report.worstDay = snapshot;
 
       if (nextState.cash <= 0) break; // stop early rather than simulate a dead business
+
+      // The business should not sit closed for days the player cannot influence.
+      const lastDayOfSpan = i === span - 1;
+      if (!lastDayOfSpan) {
+        let stop: Interruption | null = null;
+        if (nextState.inventory < 14) {
+          stop = { day: nextState.day, reason: "stockout", message: "Stock is nearly gone. Another busy day and you will be turning people away while the rent still has to be paid." };
+        } else if (nextState.profit < 0 && nextState.cash < Math.abs(nextState.profit) * 5) {
+          stop = { day: nextState.day, reason: "cash-critical", message: "Cash is running dangerously low. At this rate the business has only a few days left." };
+        }
+        if (stop) { report.interrupted = stop; report.days = i + 1; break; }
+      }
     }
 
     // Queue consequences so the decision can matter after the day it was made.
