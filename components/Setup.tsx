@@ -1,5 +1,5 @@
 "use client";
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState, useEffect, useRef } from "react";
 import { CapitalArt, LocationArt, FormatArt, FoodIcon } from "./Art";
 import { CAPITAL_OPTIONS, CAPITAL_NOTES } from "@/lib/capital";
 import { FORMAT_OPTIONS, LOCATION_OPTIONS, MENU_ITEMS, formatINR,
@@ -38,6 +38,15 @@ export default function Setup({ cafeName, onOpen, onBack, busy, error }: {
   const setupCost = fmt.cost + menuCost + 50000 + Math.max(30000, menu.length * 15000);
   const remaining = capital - setupCost;
   const idx = STEPS.indexOf(step);
+  // Draw the eye to the budget bar whenever the numbers move.
+  const [bump, setBump] = useState(false);
+  const firstRun = useRef(true);
+  useEffect(() => {
+    if (firstRun.current) { firstRun.current = false; return; }
+    setBump(true);
+    const t = setTimeout(() => setBump(false), 620);
+    return () => clearTimeout(t);
+  }, [setupCost, capital]);
 
   const next = () => setStep(STEPS[Math.min(STEPS.length - 1, idx + 1)]);
   const back = () => (idx === 0 ? onBack() : setStep(STEPS[idx - 1]));
@@ -45,7 +54,7 @@ export default function Setup({ cafeName, onOpen, onBack, busy, error }: {
   return (
     <main className="shell">
       <div className="wrap narrow-flow">
-        <div className="budget-bar">
+        <div className={`budget-bar ${bump ? "bump" : ""}`}>
           <button className="back-chip" onClick={back} aria-label="Back">←</button>
           <div className={`budget-nums ${idx === 0 ? "solo" : ""}`}>
             <div><span>Capital</span><strong>{formatINR(capital)}</strong></div>
