@@ -3,6 +3,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import Setup from "@/components/Setup";
 import { CafeScene, DecisionIcon, Spark } from "@/components/Art";
+import { RUN_LENGTH_DAYS, periodName, stageFor, turnLabel, type SpanReport } from "@/lib/cadence";
 import {
   FORMAT_OPTIONS, LOCATION_OPTIONS,
   formatINR, getAvailableDecisions,
@@ -31,7 +32,7 @@ export default function Home() {
   const [state, setState] = useState<GameState | null>(null);
   const [selected, setSelected] = useState<Decision | null>(null);
   const [eventOption, setEventOption] = useState<string | null>(null);
-  const [summary, setSummary] = useState<{ before: GameState; after: GameState; decision: Decision } | null>(null);
+  const [summary, setSummary] = useState<{ before: GameState; after: GameState; decision: Decision; report?: SpanReport } | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [historyOpen, setHistoryOpen] = useState(false);
@@ -53,7 +54,7 @@ export default function Home() {
 
   useEffect(() => {
     if (screen !== "game" || !state) return;
-    const finished = state.cash <= 0 || state.day >= 91;
+    const finished = state.cash <= 0 || state.day > RUN_LENGTH_DAYS;
     if (finished && localStorage.getItem("bs-feedback-asked") !== "1") setFeedbackOpen(true);
   }, [screen, state]);
 
@@ -87,7 +88,7 @@ export default function Home() {
       const d = await r.json(); if (!r.ok) throw new Error(d.error || "Unable to finish the day.");
       const after = d.state as GameState;
       setState(after); setSelected(null); setEventOption(null);
-      setSummary({ before, after, decision: chosen });
+      setSummary({ before, after, decision: chosen, report: d.report as SpanReport | undefined });
     } catch (e) { setError(e instanceof Error ? e.message : "Unable to finish the day."); }
     finally { setBusy(false); }
   };
@@ -148,16 +149,16 @@ export default function Home() {
 
   if (!state) return <Screen><H1>Something went wrong.</H1><P>{error || "Please refresh."}</P></Screen>;
 
-  if (state.cash <= 0 || state.day >= 91) {
-    const won = state.day >= 91 && state.cumulativeProfit > 0;
-    const survived = state.day >= 91 && !won;
+  if (state.cash <= 0 || state.day > RUN_LENGTH_DAYS) {
+    const won = state.day > RUN_LENGTH_DAYS && state.cumulativeProfit > 0;
+    const survived = state.day > RUN_LENGTH_DAYS && !won;
     return (
       <>
         <Screen>
-          <Eyebrow>{won ? "You built it" : survived ? "Ninety days" : "Out of cash"}</Eyebrow>
+          <Eyebrow>{won ? "You built it" : survived ? "One year" : "Out of cash"}</Eyebrow>
           <H1>{won ? "You made it." : survived ? "You survived." : "The money ran out."}</H1>
-          <P>{won ? `${state.businessName || "Your cafe"} reached day 90 in profit. That's a win.`
-            : survived ? `${state.businessName || "Your cafe"} lasted ninety days but didn't finish in profit. That's a lesson, not a failure.`
+          <P>{won ? `${state.businessName || "Your cafe"} made it through a full year in profit. That's a win.`
+            : survived ? `${state.businessName || "Your cafe"} lasted a full year but didn't finish in profit. That's a lesson, not a failure.`
             : `${state.businessName || "Your cafe"} couldn't fund another day.`}</P>
           <div className="endgrid">
             <div><span>Days open</span><strong>{Math.max(0, state.day - 1)}</strong></div>
@@ -184,7 +185,7 @@ export default function Home() {
         <header className="bar">
           <div>
             <div className="cafe">{state.businessName || "Your cafe"}</div>
-            <div className="sub">Day {state.day} · {location?.name} · {format?.name}</div>
+            <div className="sub">{turnLabel(state.day)} · {stageFor(state.day).label}</div>
           </div>
           <div className="bar-actions">
             <button className="ghost" onClick={() => setHistoryOpen(true)}>History</button>
@@ -222,7 +223,7 @@ export default function Home() {
 
         <section className="card">
           <Eyebrow>Today</Eyebrow>
-          <h2>How will you run {state.businessName || "the cafe"} today?</h2>
+          <h2>{stageFor(state.day).id === "daily" ? `How will you run ${state.businessName || "the cafe"} today?` : `What\u2019s your plan for the next ${periodName(state.day)}?`}</h2>
           <div className="stack">
             {DECISIONS.map(([id, title, desc, cost]) => {
               const ok = available.has(id);
@@ -240,7 +241,7 @@ export default function Home() {
             })}
           </div>
           <button className="primary" onClick={finishDay} disabled={busy || !selected || !!(state.currentEvent && !eventOption)}>
-            {busy ? "Running the day…" : "Finish the day"}
+            {busy ? "Playing it out…" : stageFor(state.day).id === "daily" ? "Finish the day" : `Run the ${periodName(state.day)}`}
           </button>
           {error && <div className="notice">{error}</div>}
         </section>
@@ -253,18 +254,25 @@ export default function Home() {
   );
 }
 
-function DaySummary({ before, after, decision, onClose }: { before: GameState; after: GameState; decision: Decision; onClose: () => void }) {
+function DaySummary({ before, after, decision, report, onClose }: { before: GameState; after: GameState; decision: Decision; report?: SpanReport; onClose: () => void }) {
+  const multi = !!report && report.days > 1;
   const dCustomers = after.customers - before.customers;
   const dProfit = Math.round(after.profit - before.profit);
   const dRep = Math.round((after.reputation - before.reputation) * 10) / 10;
-  const spent = Math.max(0, before.cash + after.profit - after.cash);
+  const spent = Math.max(0, before.cash + (report ? report.profit : after.profit) - after.cash);
   const sign = (n: number) => (n > 0 ? `+${n.toLocaleString("en-IN")}` : n.toLocaleString("en-IN"));
   const cls = (n: number) => (n > 0 ? "pos" : n < 0 ? "neg" : "");
-  const custSeries = [...after.dayHistory.slice(-7).map(r => r.customers)];
+  const custSeries = [...after.dayHistory.slice(-14).map(r => r.customers)];
+  const unit = report ? (report.days === 7 ? "week" : report.days === 14 ? "fortnight" : report.days >= 28 ? "month" : `${report.days} days`) : "day";
 
-  // One plain-English sentence tying the decision to the outcome.
   const verdict = (() => {
     const d = decisionName(decision).toLowerCase();
+    if (multi && report) {
+      const avg = Math.round(report.customers / report.days);
+      const money = report.profit >= 0 ? `made ${formatINR(Math.round(report.profit))}` : `lost ${formatINR(Math.abs(Math.round(report.profit)))}`;
+      if (decision === "no-action") return `You held steady for a ${unit}. The cafe ${money}, averaging ${avg} customers a day.`;
+      return `You chose to ${d}. Over the ${unit} the cafe ${money}, averaging ${avg} customers a day.`;
+    }
     if (decision === "no-action") return dProfit >= 0 ? "You left things alone and the day paid for itself." : "You left things alone and the costs still came.";
     if (spent > 0 && dCustomers > 0) return `You spent ${formatINR(spent)} to ${d}. ${dCustomers} more people came in than yesterday.`;
     if (spent > 0 && dCustomers < 0) return `You spent ${formatINR(spent)} to ${d}, and ${Math.abs(dCustomers)} fewer people came in than yesterday.`;
@@ -275,17 +283,36 @@ function DaySummary({ before, after, decision, onClose }: { before: GameState; a
 
   return (
     <Modal onClose={onClose}>
-      <div className="eyebrow">Day {before.day} done</div>
+      <div className="eyebrow">{multi && report ? `Days ${report.fromDay}–${report.toDay}` : `Day ${before.day} done`}</div>
       <h2 className="verdict">{verdict}</h2>
-      <div className="deltas">
-        <div><span>Customers</span><strong className={cls(dCustomers)}>{sign(dCustomers)}</strong><small>{after.customers} today</small></div>
-        <div><span>Profit</span><strong className={cls(dProfit)}>{sign(dProfit)}</strong><small>{formatINR(after.profit)} today</small></div>
-        <div><span>Reputation</span><strong className={cls(dRep)}>{sign(dRep)}</strong><small>{Math.round(after.reputation)}/100 now</small></div>
-        <div><span>Cash</span><strong className={cls(after.cash - before.cash)}>{sign(after.cash - before.cash)}</strong><small>{formatINR(after.cash)} left</small></div>
-      </div>
+
+      {multi && report ? (
+        <>
+          <div className="deltas">
+            <div><span>Customers served</span><strong>{report.customers.toLocaleString("en-IN")}</strong><small>over {report.days} days</small></div>
+            <div><span>Revenue</span><strong>{formatINR(Math.round(report.revenue))}</strong><small>{formatINR(Math.round(report.revenue / report.days))}/day</small></div>
+            <div><span>Profit</span><strong className={cls(report.profit)}>{formatINR(Math.round(report.profit))}</strong><small>{report.profitableDays} good days, {report.lossDays} bad</small></div>
+            <div><span>Cash now</span><strong className={cls(after.cash - before.cash)}>{formatINR(after.cash)}</strong><small>{sign(after.cash - before.cash)} this {unit}</small></div>
+          </div>
+          {(report.bestDay || report.worstDay) && (
+            <div className="extremes">
+              {report.bestDay && <div><span>Best day</span><strong className="pos">Day {report.bestDay.day}</strong><small>{report.bestDay.customers} customers · {formatINR(report.bestDay.profit)}</small></div>}
+              {report.worstDay && <div><span>Worst day</span><strong className="neg">Day {report.worstDay.day}</strong><small>{report.worstDay.customers} customers · {formatINR(report.worstDay.profit)}</small></div>}
+            </div>
+          )}
+        </>
+      ) : (
+        <div className="deltas">
+          <div><span>Customers</span><strong className={cls(dCustomers)}>{sign(dCustomers)}</strong><small>{after.customers} today</small></div>
+          <div><span>Profit</span><strong className={cls(dProfit)}>{sign(dProfit)}</strong><small>{formatINR(after.profit)} today</small></div>
+          <div><span>Reputation</span><strong className={cls(dRep)}>{sign(dRep)}</strong><small>{Math.round(after.reputation)}/100 now</small></div>
+          <div><span>Cash</span><strong className={cls(after.cash - before.cash)}>{sign(after.cash - before.cash)}</strong><small>{formatINR(after.cash)} left</small></div>
+        </div>
+      )}
+
       {custSeries.length > 2 && <div className="trend"><span>Customers, last {custSeries.length} days</span><Spark values={custSeries} /></div>}
       {after.lastDayMessage && <p className="daymsg">{after.lastDayMessage}</p>}
-      <button className="primary" onClick={onClose}>Next day</button>
+      <button className="primary" onClick={onClose}>Carry on</button>
     </Modal>
   );
 }
