@@ -164,3 +164,8 @@ p.lead{font-size:16px;color:var(--ink);opacity:.82}
 .trend{margin-top:12px;padding:12px;background:var(--tint);border-radius:12px}
 .trend span{display:block;font-size:11.5px;color:var(--muted);font-weight:600;margin-bottom:2px}
 .daymsg{margin-top:12px;font-size:14px;line-height:1.5;color:var(--muted)}
+.extremes{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:9px}
+.extremes>div{background:var(--tint);border-radius:12px;padding:11px}
+.extremes span{display:block;font-size:11px;color:var(--muted);font-weight:600}
+.extremes strong{display:block;margin-top:3px;font-size:15px;font-weight:700}
+.extremes small{display:block;margin-top:2px;font-size:11px;color:var(--muted)}
