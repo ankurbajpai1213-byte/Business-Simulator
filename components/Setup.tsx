@@ -56,6 +56,7 @@ export default function Setup({ cafeName, onOpen, onBack, busy, error }: {
         <div className="pips">{STEPS.map((s, i) => <i key={s} className={i <= idx ? "on" : ""} />)}</div>
 
         <section className="card flow-card">
+          <div className="flow-scroll">
           {step === "capital" && <>
             <div className="eyebrow">Step 1 of 5</div>
             <h1>How much are you putting in?</h1>
@@ -163,6 +164,7 @@ export default function Setup({ cafeName, onOpen, onBack, busy, error }: {
             {menu.length === 0 && <div className="notice">Pick at least one thing to sell.</div>}
           </>}
 
+          </div>
           {error && <div className="notice">{error}</div>}
 
           {step === "plan"
