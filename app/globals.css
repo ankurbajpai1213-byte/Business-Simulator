@@ -419,3 +419,8 @@ p.lead{font-size:16px;color:var(--ink);opacity:.82}
 .tl-item.done .tl-dot{background:var(--teal);border-color:var(--teal)}
 .tl-item.done::before{background:var(--teal)}
 @media(prefers-reduced-motion:reduce){.confetti i{animation:none;display:none}}
+
+/* welcome screen: no dead space between the intro and the name field */
+.flow-card p + .field-label,
+.card p.lead + .field-label{margin-top:6px}
+.card p.lead:last-of-type{margin-bottom:0}
