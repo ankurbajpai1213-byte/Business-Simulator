@@ -3,8 +3,9 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import Setup from "@/components/Setup";
 import Brewing from "@/components/Brewing";
+import MuteButton from "@/components/MuteButton";
 import { sfx, setSound, soundOn } from "@/lib/sound";
-import { startMusic, stopMusic } from "@/lib/music";
+import { startMusic, stopMusic, resumeMusic } from "@/lib/music";
 import { CafeScene, DecisionIcon, Spark } from "@/components/Art";
 import { RUN_LENGTH_DAYS, periodName, slotsForTurn, stageFor, turnLabel, type SpanReport } from "@/lib/cadence";
 import {
@@ -195,7 +196,7 @@ export default function Home() {
     if (!audio) { stopMusic(); return; }
     // Browsers block audio until the player touches the page, so latch onto
     // the first interaction anywhere — including the very first name screen.
-    const kick = () => startMusic();
+    const kick = () => resumeMusic();
     window.addEventListener("pointerdown", kick);
     window.addEventListener("keydown", kick);
     startMusic();
@@ -361,7 +362,7 @@ export default function Home() {
             <div className="sub">{turnLabel(state.day)} · {stageFor(state.day).label}{state.weatherToday && state.weatherToday !== "clear" ? ` · ${({hot:"Hot",rain:"Rain",cold:"Cold",festival:"Festival"} as Record<string,string>)[state.weatherToday]}` : ""}</div>
           </div>
           <div className="bar-actions">
-            <button className="ghost" onClick={() => { const next = !audio; setSound(next); setAudio(next); if (next) { startMusic(); sfx.select(); } else stopMusic(); }} aria-label={audio ? "Turn sound off" : "Turn sound on"}>{audio ? "🔊" : "🔇"}</button>
+            <button className="ghost" onClick={() => { const next = !audio; setSound(next); setAudio(next); if (next) { startMusic(); resumeMusic(); sfx.select(); } else stopMusic(); }} aria-label={audio ? "Turn sound off" : "Turn sound on"}>{audio ? "🔊" : "🔇"}</button>
             <button className="ghost" onClick={() => { sfx.tap(); setHistoryOpen(true); }}>History</button>
             <button className="ghost" onClick={newGame} disabled={busy}>New</button>
           </div>
@@ -904,7 +905,11 @@ function FeedbackModal({ onDone }: { onDone: (a: Record<string, string | boolean
   );
 }
 
-function Screen({ children }: { children: ReactNode }) { return <main className="shell"><div className="wrap narrow"><section className="card tall">{children}</section></div></main>; }
+function Screen({ children }: { children: ReactNode }) {
+  return <main className="shell"><MuteButton /><div className="wrap narrow"><section className="card tall">{children}</section></div></main>;
+}
+
+
 function Eyebrow({ children }: { children: ReactNode }) { return <div className="eyebrow">{children}</div>; }
 function H1({ children }: { children: ReactNode }) { return <h1>{children}</h1>; }
 function P({ children }: { children: ReactNode }) { return <p className="lead">{children}</p>; }
