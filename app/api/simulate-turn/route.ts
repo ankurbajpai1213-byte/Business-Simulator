@@ -6,7 +6,7 @@ import { applyDelayedEffect, createDelayedEffects, shouldShowMilestone, type Del
 import { daysThisTurn, slotsForTurn, RUN_LENGTH_DAYS, type Interruption, type SpanReport } from "@/lib/cadence";
 
 const SESSION_COOKIE = "bs_session";
-const decisions = new Set<Decision>(["raise-price", "lower-price", "marketing", "hire", "quality", "inventory", "no-action"]);
+const decisions = new Set<Decision>(["raise-price", "lower-price", "marketing", "hire", "quality", "inventory", "inventory-2", "inventory-3", "no-action", "supply-contract", "hire-manager", "extend-hours", "loyalty-programme"]);
 type V2State = GameState & { pendingDelayedEffects?: DelayedEffect[] };
 
 export async function POST(request: Request) {
