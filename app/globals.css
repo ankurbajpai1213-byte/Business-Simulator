@@ -468,3 +468,6 @@ p.lead{font-size:16px;color:var(--ink);opacity:.82}
 .coach-dots{display:flex;gap:5px;margin-bottom:14px}
 .coach-dots i{width:20px;height:3px;border-radius:2px;background:var(--line-2)}
 .coach-dots i.on{background:var(--teal)}
+.mute-float{position:absolute;top:12px;right:14px;z-index:30;border:1px solid var(--line-2);background:var(--card);width:36px;height:36px;border-radius:50%;font-size:15px;line-height:1;display:grid;place-items:center;box-shadow:0 2px 8px rgba(31,29,26,.06)}
+.mute-float:active{transform:scale(.94)}
+.shell{position:relative}
