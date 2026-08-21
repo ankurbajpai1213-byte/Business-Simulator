@@ -60,6 +60,18 @@ function schedule() {
   }
 }
 
+/** A tap arrived: unfreeze the audio context if the browser had it suspended. */
+export function resumeMusic() {
+  if (typeof window === "undefined" || !soundOn()) return;
+  if (!running) { startMusic(); return; }
+  if (ctx && ctx.state === "suspended") {
+    void ctx.resume().then(() => {
+      // Time moved on while we were frozen; restart scheduling from now.
+      if (ctx && running) nextNoteTime = Math.max(nextNoteTime, ctx.currentTime + 0.05);
+    });
+  }
+}
+
 export function startMusic() {
   if (running || typeof window === "undefined" || !soundOn()) return;
   try {
