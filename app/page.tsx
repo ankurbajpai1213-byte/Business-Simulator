@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import Setup from "@/components/Setup";
 import Brewing from "@/components/Brewing";
 import { sfx, setSound, soundOn } from "@/lib/sound";
@@ -83,6 +83,21 @@ function outlook(id: Decision, state: GameState, spanDays: number): { line: stri
       return { line: `Spend nothing`,
                warn: state.inventory < 20 ? "Stock is low" : undefined };
   }
+}
+
+/** A refusal without a reason is just confusing. */
+function unavailableReason(id: Decision, state: GameState): string {
+  if (id === "raise-price" && state.day < 3) return "From day 3";
+  if (id === "lower-price" && state.priceIndex <= 100) return "Prices are already at base";
+  if (id === "lower-price" && state.day < 3) return "From day 3";
+  if (id === "quality" && state.day < 3) return "From day 3";
+  if (id === "raise-price" && state.priceIndex >= 140) return "Already at the maximum";
+  if (id.startsWith("inventory") && state.inventory >= 100) return "Shelves are full";
+  if (id === "quality" && state.quality >= 100) return "Quality is at its best";
+  if (id === "marketing" && state.marketing >= 100) return "Awareness is maxed out";
+  if (id === "hire" && state.staff >= 100) return "Fully staffed";
+  if (STRATEGIC.has(id) && state.day <= 90) return "Unlocks after month 3";
+  return "Not enough cash";
 }
 
 const idxOf = (id: Decision) => DECISIONS.findIndex(d => d[0] === id);
@@ -188,7 +203,8 @@ export default function Home() {
   }, [audio]);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
 
-  useEffect(() => { (async () => {
+  const booted = useRef(false);
+  useEffect(() => { if (booted.current) return; booted.current = true; (async () => {
     try {
       const p = await fetch("/api/player"); const pd = await p.json();
       const s = await fetch("/api/game/session"); const sd = await s.json();
@@ -249,7 +265,7 @@ export default function Home() {
   };
 
   const newGame = async () => {
-    if (!confirm("Start a new game? Your current run stays saved.")) return;
+    if (!confirm("Start over with a new cafe? This run will end and you will not be able to return to it.")) return;
     setBusy(true);
     try {
       const r = await fetch("/api/game/new", { method: "POST" }); const d = await r.json();
@@ -383,13 +399,26 @@ export default function Home() {
           </div>
           </div>
           <div className="dec-grid">
-            {DECISIONS.filter(([id]) => available.has(id) || !STRATEGIC.has(id)).map(([id, title, cost]) => {
+            {DECISIONS
+              .filter(([id]) => available.has(id) || !STRATEGIC.has(id))
+              .slice()
+              .sort((a, b) => {
+                const usable = (id: Decision) => {
+                  if (!available.has(id)) return 0;
+                  const clash = (id === "raise-price" && picked.includes("lower-price")) || (id === "lower-price" && picked.includes("raise-price"));
+                  const chosen = id === "inventory" ? picked.some(x => x.startsWith("inventory")) : picked.includes(id);
+                  const noRoom = !chosen && picked.length >= slots;
+                  return clash || noRoom ? 0 : 1;
+                };
+                return usable(b[0]) - usable(a[0]);
+              })
+              .map(([id, title, cost]) => {
               const on = id === "inventory" ? picked.some(x => x.startsWith("inventory")) : picked.includes(id);
               const blockedByPrice = (id === "raise-price" && picked.includes("lower-price")) || (id === "lower-price" && picked.includes("raise-price"));
               const full = !on && picked.length >= slots;
               const ok = available.has(id) && !blockedByPrice && !full;
               const look = outlook(id === "inventory" ? (RESTOCKS.find(r => picked.includes(r[0]))?.[0] ?? "inventory") : id, state, spanDays);
-              const why = !available.has(id) ? "Not available right now"
+              const why = !available.has(id) ? unavailableReason(id, state)
                 : blockedByPrice ? "You already changed prices this turn"
                 : full ? "No slots left this turn"
                 : look.line;
