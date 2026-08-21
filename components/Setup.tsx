@@ -1,6 +1,7 @@
 "use client";
 import { useMemo, useState, useEffect, useRef } from "react";
 import { CapitalArt, LocationArt, FormatArt, FoodIcon } from "./Art";
+import MuteButton from "./MuteButton";
 import { CAPITAL_OPTIONS, CAPITAL_NOTES } from "@/lib/capital";
 import { FORMAT_OPTIONS, LOCATION_OPTIONS, MENU_ITEMS, formatINR,
   type BusinessFormat, type GameState, type Location, type MenuItemId } from "@/lib/simulation";
@@ -53,6 +54,7 @@ export default function Setup({ cafeName, onOpen, onBack, busy, error }: {
 
   return (
     <main className="shell">
+      <MuteButton />
       <div className="wrap narrow-flow">
         <div className={`budget-bar ${bump ? "bump" : ""}`}>
           <button className="back-chip" onClick={back} aria-label="Back">←</button>
