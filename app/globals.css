@@ -446,3 +446,25 @@ p.lead{font-size:16px;color:var(--ink);opacity:.82}
 .choice-card.dec small{-webkit-line-clamp:2;max-height:2.7em}
 .choice-card.dec small.warned{color:var(--coral);font-weight:600}
 .choice-card.dec .dec-warn{display:none}
+
+
+/* ---------- decision cards: overflow made structurally impossible ----------
+   Fixed height, single-line children, ellipsis. Whatever the text says, it
+   cannot grow the card or escape it. No future copy change can break this. */
+.dec-grid{grid-auto-rows:58px}
+.choice-card.dec{height:58px;display:grid;grid-template-rows:auto auto;align-content:center;gap:2px;padding:8px 10px;overflow:hidden}
+.choice-card.dec .dec-row{display:flex;align-items:center;gap:6px;min-width:0;overflow:hidden}
+.choice-card.dec strong{font-size:12.5px;line-height:1.15;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block;flex:1;min-width:0}
+.choice-card.dec .dec-cost{font-size:10px;white-space:nowrap;flex-shrink:0}
+.choice-card.dec .dec-icon{width:17px;height:17px;flex-shrink:0}
+.choice-card.dec small{font-size:10.5px;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block;max-height:none;-webkit-line-clamp:none}
+.choice-card.dec .tick{flex-shrink:0;font-size:11px}
+@media(min-height:780px){.dec-grid{grid-auto-rows:62px}.choice-card.dec{height:62px}}
+@media(max-height:660px){.dec-grid{grid-auto-rows:52px}.choice-card.dec{height:52px}}
+.coach-back{align-items:flex-end}
+.coach{text-align:left;padding-bottom:calc(20px + env(safe-area-inset-bottom))}
+.coach h2{font-size:19px;margin-bottom:6px}
+.coach p{font-size:14.5px;line-height:1.55;margin-bottom:4px}
+.coach-dots{display:flex;gap:5px;margin-bottom:14px}
+.coach-dots i{width:20px;height:3px;border-radius:2px;background:var(--line-2)}
+.coach-dots i.on{background:var(--teal)}
