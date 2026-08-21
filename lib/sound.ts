@@ -30,10 +30,12 @@ function tone(freq: number, ms: number, type: OscillatorType, gain: number, dela
   } catch { /* audio is a nicety, never a failure */ }
 }
 
+import { duck } from "./music";
+
 export const sfx = {
-  tap: () => tone(520, 60, "sine", 0.05),
-  select: () => tone(660, 80, "sine", 0.06),
-  coin: () => { tone(880, 110, "triangle", 0.07); tone(1320, 130, "triangle", 0.05, 0.07); },
-  loss: () => { tone(220, 200, "sine", 0.06); tone(165, 260, "sine", 0.05, 0.1); },
-  milestone: () => { [523, 659, 784, 1047].forEach((f, i) => tone(f, 220, "triangle", 0.07, i * 0.09)); },
+  tap: () => { duck(220); tone(520, 60, "sine", 0.05); },
+  select: () => { duck(260); tone(660, 80, "sine", 0.06); },
+  coin: () => { duck(700); tone(880, 110, "triangle", 0.07); tone(1320, 130, "triangle", 0.05, 0.07); },
+  loss: () => { duck(800); tone(220, 200, "sine", 0.06); tone(165, 260, "sine", 0.05, 0.1); },
+  milestone: () => { duck(1400); [523, 659, 784, 1047].forEach((f, i) => tone(f, 220, "triangle", 0.07, i * 0.09)); },
 };
