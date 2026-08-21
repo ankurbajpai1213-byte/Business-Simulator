@@ -5,7 +5,8 @@ const KEY = "bs-sound-on";
 
 export function soundOn(): boolean {
   if (typeof window === "undefined") return false;
-  return localStorage.getItem(KEY) === "1";
+  // On by default; only silent if the player has explicitly turned it off.
+  return localStorage.getItem(KEY) !== "0";
 }
 export function setSound(on: boolean) {
   if (typeof window !== "undefined") localStorage.setItem(KEY, on ? "1" : "0");
