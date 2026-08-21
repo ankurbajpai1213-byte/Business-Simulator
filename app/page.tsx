@@ -398,8 +398,7 @@ export default function Home() {
                     <span className="dec-cost">{id === "inventory" ? (RESTOCKS.find(r => picked.includes(r[0])) ? formatINR(RESTOCKS.find(r => picked.includes(r[0]))![3]) : cost) : cost}</span>
                     {on && <span className="tick">✓</span>}
                   </div>
-                  <small>{why}</small>
-                  {(ok || on) && look.warn && <em className="dec-warn">{look.warn}</em>}
+                  <small className={(ok || on) && look.warn ? "warned" : ""}>{(ok || on) && look.warn ? look.warn : why}</small>
                 </button>
               );
             })}
