@@ -4,6 +4,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import Setup from "@/components/Setup";
 import Brewing from "@/components/Brewing";
 import { sfx, setSound, soundOn } from "@/lib/sound";
+import { startMusic, stopMusic } from "@/lib/music";
 import { CafeScene, DecisionIcon, Spark } from "@/components/Art";
 import { RUN_LENGTH_DAYS, periodName, slotsForTurn, stageFor, turnLabel, type SpanReport } from "@/lib/cadence";
 import {
@@ -171,6 +172,13 @@ export default function Home() {
   const [restockOpen, setRestockOpen] = useState(false);
   const [audio, setAudio] = useState(false);
   useEffect(() => { setAudio(soundOn()); }, []);
+  useEffect(() => {
+    if (!audio) { stopMusic(); return; }
+    const kick = () => { startMusic(); window.removeEventListener("pointerdown", kick); };
+    window.addEventListener("pointerdown", kick, { once: true });
+    startMusic();
+    return () => window.removeEventListener("pointerdown", kick);
+  }, [audio]);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
 
   useEffect(() => { (async () => {
@@ -330,7 +338,7 @@ export default function Home() {
             <div className="sub">{turnLabel(state.day)} · {stageFor(state.day).label}{state.weatherToday && state.weatherToday !== "clear" ? ` · ${({hot:"Hot",rain:"Rain",cold:"Cold",festival:"Festival"} as Record<string,string>)[state.weatherToday]}` : ""}</div>
           </div>
           <div className="bar-actions">
-            <button className="ghost" onClick={() => { const next = !audio; setAudio(next); setSound(next); if (next) sfx.select(); }} aria-label={audio ? "Turn sound off" : "Turn sound on"}>{audio ? "🔊" : "🔇"}</button>
+            <button className="ghost" onClick={() => { const next = !audio; setSound(next); setAudio(next); if (next) { startMusic(); sfx.select(); } else stopMusic(); }} aria-label={audio ? "Turn sound off" : "Turn sound on"}>{audio ? "🔊" : "🔇"}</button>
             <button className="ghost" onClick={() => { sfx.tap(); setHistoryOpen(true); }}>History</button>
             <button className="ghost" onClick={newGame} disabled={busy}>New</button>
           </div>
