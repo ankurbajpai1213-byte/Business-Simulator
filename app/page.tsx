@@ -16,9 +16,7 @@ import {
 const DECISIONS: Array<[Decision, string, string]> = [
   ["marketing", "Run marketing", "₹10,000"],
   ["quality", "Improve quality", "₹12,000"],
-  ["inventory", "Restock ×1", "₹8,000"],
-  ["inventory-2", "Restock ×2", "₹15,000"],
-  ["inventory-3", "Restock ×3", "₹21,000"],
+  ["inventory", "Restock", "from ₹8,000"],
   ["hire", "Hire staff", "₹18,000"],
   ["raise-price", "Raise prices", "Free"],
   ["lower-price", "Lower prices", "Free"],
@@ -31,58 +29,69 @@ const DECISIONS: Array<[Decision, string, string]> = [
 
 /** What this choice will actually do, given where the business is right now. */
 function outlook(id: Decision, state: GameState, spanDays: number): { line: string; warn?: string } {
-  const perDay = Math.max(4, Math.round(Math.max(1, state.customers) / 9));
-  const daysOf = (points: number) => Math.max(1, Math.round(points / perDay));
+  const opened = state.day > 1 && state.customers > 0;
+  // Before opening there is no trade to reason from, so fall back to a sensible estimate.
+  const expected = opened ? state.customers : Math.round(state.serviceCapacity * 0.5);
+  const perDay = Math.max(3, Math.round(expected / 9));
+
   const add = (points: number) => {
-    const capped = Math.min(100, state.inventory + points) - state.inventory;
-    const cover = daysOf(state.inventory + capped);
-    const warn = state.inventory + points > 100
-      ? `${Math.round(state.inventory + points - 100)}% would overflow and be wasted`
-      : cover > spanDays + 4 && spanDays > 1
-        ? "More than you need — the excess may spoil"
-        : undefined;
-    return { line: `+${Math.round(capped)}% stock · about ${cover} days of cover`, warn };
+    const room = 100 - state.inventory;
+    const gained = Math.min(points, room);
+    const wasted = points - gained;
+    const cover = Math.max(1, Math.round((state.inventory + gained) / perDay));
+    const line = `+${gained}% stock · ${cover} days' cover`;
+    if (wasted > 0) return { line, warn: `${wasted}% has nowhere to go` };
+    if (spanDays > 1 && cover > spanDays * 2) return { line, warn: "More than this period needs" };
+    return { line };
   };
+
   switch (id) {
     case "inventory": return add(30);
     case "inventory-2": return add(60);
     case "inventory-3": return add(90);
     case "marketing": {
       const now = Math.round(state.marketing);
-      return { line: `Awareness ${now}% → ${Math.min(100, now + 14)}% · more footfall for a few days`,
-               warn: state.inventory < 25 ? "You may not have the stock to serve them" : undefined };
+      return { line: `Awareness ${now}% → ${Math.min(100, now + 14)}%`,
+               warn: state.inventory < 25 ? "Low stock to serve them" : undefined };
     }
     case "quality":
-      return { line: `Quality ${state.quality}% → ${Math.min(100, state.quality + 7)}% · lifts reputation slowly`,
-               warn: state.quality >= 93 ? "Close to the maximum already" : undefined };
+      return { line: `Quality ${state.quality}% → ${Math.min(100, state.quality + 7)}%`,
+               warn: state.quality >= 93 ? "Near the maximum" : undefined };
     case "hire": {
-      const used = state.serviceCapacity > 0 ? Math.round((state.customers / state.serviceCapacity) * 100) : 0;
-      return { line: `Serve ${state.serviceCapacity} → ${Math.min(600, state.serviceCapacity + 15)}/day · you used ${used}% yesterday`,
-               warn: used < 70 ? "You have spare capacity — this adds wages, not sales" : undefined };
+      const used = opened && state.serviceCapacity > 0 ? Math.round((state.customers / state.serviceCapacity) * 100) : null;
+      return { line: `Capacity ${state.serviceCapacity} → ${Math.min(600, state.serviceCapacity + 15)}/day`,
+               warn: used !== null && used < 70 ? `Only ${used}% used — adds wages` : undefined };
     }
     case "raise-price":
-      return { line: `Price ${state.priceIndex} → ${Math.min(140, state.priceIndex + 6)} · more per sale, fewer people`,
-               warn: state.consecutivePriceRaises >= 2 ? "You have raised prices repeatedly — customers are noticing" : undefined };
+      return { line: `Price ${state.priceIndex} → ${Math.min(140, state.priceIndex + 6)}`,
+               warn: state.consecutivePriceRaises >= 2 ? "Customers are noticing" : undefined };
     case "lower-price":
-      return { line: `Price ${state.priceIndex} → ${Math.max(100, state.priceIndex - 6)} · win people back, thinner margin` };
+      return { line: `Price ${state.priceIndex} → ${Math.max(100, state.priceIndex - 6)}` };
     case "supply-contract":
-      return { line: "Standing deliveries keep stock near 78% without ordering · costs ~3.5% of sales",
-               warn: spanDays < 14 ? "Most useful once you plan a fortnight or month at a time" : undefined };
+      return { line: "Stock stays near 78% by itself",
+               warn: spanDays < 14 ? "Best on longer periods" : undefined };
     case "hire-manager":
-      return { line: "Someone runs the floor · less service strain, steadier reputation · +₹2,600/day wages" };
+      return { line: "Steadier service · +₹2,600/day" };
     case "extend-hours":
-      return { line: `Serve ${state.serviceCapacity} → ${Math.min(600, state.serviceCapacity + 40)}/day and catch more trade · +₹1,900/day wages`,
-               warn: state.inventory < 30 ? "More opening hours needs more stock" : undefined };
+      return { line: `Capacity ${state.serviceCapacity} → ${Math.min(600, state.serviceCapacity + 40)}/day`,
+               warn: state.inventory < 30 ? "Needs more stock" : undefined };
     case "loyalty-programme":
-      return { line: "Regulars come back more often · steady lift to demand · +₹700/day",
-               warn: state.reputation < 45 ? "Works best once people already like you" : undefined };
+      return { line: "Regulars return more often",
+               warn: state.reputation < 45 ? "Works better once liked" : undefined };
     default:
-      return { line: `Spend nothing and see how the ${spanDays > 1 ? "period" : "day"} goes`,
-               warn: state.inventory < 20 ? "Stock is low — doing nothing is a risk" : undefined };
+      return { line: `Spend nothing this ${spanDays > 1 ? "period" : "day"}`,
+               warn: state.inventory < 20 ? "Stock is low" : undefined };
   }
 }
 
 const idxOf = (id: Decision) => DECISIONS.findIndex(d => d[0] === id);
+const RESTOCKS: Array<[Decision, string, number, number]> = [
+  ["inventory", "Small delivery", 30, 8000],
+  ["inventory-2", "Double delivery", 60, 15000],
+  ["inventory-3", "Full restock", 90, 21000],
+];
+/** How many delivery sizes are on offer, by how long the turn is. */
+const restockChoices = (spanDays: number) => (spanDays >= 14 ? 3 : spanDays >= 7 ? 2 : 1);
 const STRATEGIC = new Set<Decision>(["supply-contract", "hire-manager", "extend-hours", "loyalty-programme"]);
 const decisionName = (id: Decision) => DECISIONS.find(x => x[0] === id)?.[1] ?? "your decision";
 
@@ -159,6 +168,7 @@ export default function Home() {
   const [promoted, setPromoted] = useState<{ from: string; to: string; label: string } | null>(null);
   const [ledgerOpen, setLedgerOpen] = useState(false);
   const [milestonesOpen, setMilestonesOpen] = useState(false);
+  const [restockOpen, setRestockOpen] = useState(false);
   const [audio, setAudio] = useState(false);
   useEffect(() => { setAudio(soundOn()); }, []);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
@@ -359,24 +369,33 @@ export default function Home() {
           </div>
           <div className="dec-grid">
             {DECISIONS.filter(([id]) => available.has(id) || !STRATEGIC.has(id)).map(([id, title, cost]) => {
-              const on = picked.includes(id);
+              const on = id === "inventory" ? picked.some(x => x.startsWith("inventory")) : picked.includes(id);
               const blockedByPrice = (id === "raise-price" && picked.includes("lower-price")) || (id === "lower-price" && picked.includes("raise-price"));
               const full = !on && picked.length >= slots;
               const ok = available.has(id) && !blockedByPrice && !full;
-              const look = outlook(id, state, spanDays);
+              const look = outlook(id === "inventory" ? (RESTOCKS.find(r => picked.includes(r[0]))?.[0] ?? "inventory") : id, state, spanDays);
               const why = !available.has(id) ? "Not available right now"
                 : blockedByPrice ? "You already changed prices this turn"
                 : full ? "No slots left this turn"
                 : look.line;
               return (
                 <button key={id} style={{ animationDelay: `${Math.min(8, idxOf(id)) * 28}ms` }} className={`choice-card dec pop ${on ? "selected" : ""} ${!ok && !on ? "locked" : ""}`}
-                  onClick={() => { if (on) { sfx.tap(); setPicked(p => p.filter(x => x !== id)); } else if (ok) { sfx.select(); setPicked(p => [...p, id]); } }}
+                  onClick={() => {
+                    const chosenRestock = picked.find(x => x.startsWith("inventory"));
+                    if (id === "inventory") {
+                      if (chosenRestock) { sfx.tap(); setPicked(p => p.filter(x => !x.startsWith("inventory"))); }
+                      else if (ok) { sfx.tap(); setRestockOpen(true); }
+                      return;
+                    }
+                    if (on) { sfx.tap(); setPicked(p => p.filter(x => x !== id)); }
+                    else if (ok) { sfx.select(); setPicked(p => [...p, id]); }
+                  }}
                   disabled={busy || (!ok && !on)}>
                   <div className="dec-row">
                     {STRATEGIC.has(id) && <span className="strat-flag">Long term</span>}
                     <DecisionIcon id={id} />
-                    <strong>{title}</strong>
-                    <span className="dec-cost">{cost}</span>
+                    <strong>{id === "inventory" ? (RESTOCKS.find(r => picked.includes(r[0]))?.[1] ?? title) : title}</strong>
+                    <span className="dec-cost">{id === "inventory" ? (RESTOCKS.find(r => picked.includes(r[0])) ? formatINR(RESTOCKS.find(r => picked.includes(r[0]))![3]) : cost) : cost}</span>
                     {on && <span className="tick">✓</span>}
                   </div>
                   <small>{why}</small>
@@ -400,11 +419,46 @@ export default function Home() {
       {summary && <DaySummary {...summary} onClose={() => setSummary(null)} />}
       {!summary && promoted && <PromotionModal {...promoted} onClose={() => setPromoted(null)} />}
       {detail && <MetricDetail metric={detail} state={state} onClose={() => setDetail(null)} />}
+      {restockOpen && (
+        <RestockModal state={state} spanDays={spanDays} cash={state.cash}
+          onPick={(d) => { sfx.select(); setPicked(p => [...p.filter(x => !x.startsWith("inventory")), d]); setRestockOpen(false); }}
+          onClose={() => setRestockOpen(false)} />
+      )}
       {ledgerOpen && <LedgerModal state={state} onClose={() => setLedgerOpen(false)} />}
       {milestonesOpen && <MilestoneModal state={state} onClose={() => setMilestonesOpen(false)} />}
       {historyOpen && <HistoryModal state={state} onClose={() => setHistoryOpen(false)} />}
       {feedbackOpen && <FeedbackModal onDone={submitFeedback} />}
     </main>
+  );
+}
+
+function RestockModal({ state, spanDays, cash, onPick, onClose }: { state: GameState; spanDays: number; cash: number; onPick: (d: Decision) => void; onClose: () => void }) {
+  const count = restockChoices(spanDays);
+  const options = RESTOCKS.slice(0, count);
+  return (
+    <Modal onClose={onClose}>
+      <div className="eyebrow">Restock</div>
+      <h2>How much are you ordering?</h2>
+      <p className="detail-what">
+        You are at {Math.round(state.inventory)}% stock.
+        {count === 1 ? " On a single day a small delivery is all you can take in." : ` Planning a ${spanDays >= 28 ? "month" : spanDays >= 14 ? "fortnight" : "week"} means you can order bigger.`}
+      </p>
+      <div className="stack">
+        {options.map(([id, label, points, cost]) => {
+          const look = outlook(id, state, spanDays);
+          const tooDear = cost > cash;
+          return (
+            <button key={id} className={`choice-card ${tooDear ? "locked" : ""}`} disabled={tooDear} onClick={() => onPick(id)}>
+              <div className="choice-head"><strong>{label}</strong><span className="dec-cost">{formatINR(cost)}</span></div>
+              <small>{tooDear ? "More than you have in the bank" : look.line}</small>
+              {!tooDear && look.warn && <em className="dec-warn">{look.warn}</em>}
+              <em className="restock-raw">+{points}% ordered</em>
+            </button>
+          );
+        })}
+      </div>
+      {count < 3 && <p className="daymsg">Bigger deliveries unlock when you plan further ahead.</p>}
+    </Modal>
   );
 }
 
@@ -648,7 +702,10 @@ function DaySummary({ before, after, decision, picked, report, onClose }: { befo
   const cls = (n: number) => (n > 0 ? "pos" : n < 0 ? "neg" : "");
   const custSeries = [...after.dayHistory.slice(-14).map(r => r.customers)];
   const fresh = after.milestones.filter(m => !before.milestones.includes(m) && MILESTONES[m]);
-  const won = fresh.length > 0 || (report ? report.profit > 0 : after.profit > 0);
+  const madeMoney = report ? report.profit > 0 : after.profit > 0;
+  const wentBadly = (report ? report.profit < 0 : after.profit < 0) || !!report?.interrupted;
+  // Celebrate only genuinely good news. A milestone earned on a losing period is not a party.
+  const won = madeMoney && !wentBadly;
   const unit = report ? (report.days === 7 ? "week" : report.days === 14 ? "fortnight" : report.days >= 28 ? "month" : `${report.days} days`) : "day";
 
   const acted = picked.filter(p => p !== "no-action");
