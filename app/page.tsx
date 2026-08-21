@@ -40,9 +40,9 @@ function outlook(id: Decision, state: GameState, spanDays: number): { line: stri
     const gained = Math.min(points, room);
     const wasted = points - gained;
     const cover = Math.max(1, Math.round((state.inventory + gained) / perDay));
-    const line = `+${gained}% stock · ${cover} days' cover`;
-    if (wasted > 0) return { line, warn: `${wasted}% has nowhere to go` };
-    if (spanDays > 1 && cover > spanDays * 2) return { line, warn: "More than this period needs" };
+    const line = `+${gained}% · ${cover} days`;
+    if (wasted > 0) return { line, warn: `${wasted}% wasted` };
+    if (spanDays > 1 && cover > spanDays * 2) return { line, warn: "More than needed" };
     return { line };
   };
 
@@ -52,35 +52,35 @@ function outlook(id: Decision, state: GameState, spanDays: number): { line: stri
     case "inventory-3": return add(90);
     case "marketing": {
       const now = Math.round(state.marketing);
-      return { line: `Awareness ${now}% → ${Math.min(100, now + 14)}%`,
-               warn: state.inventory < 25 ? "Low stock to serve them" : undefined };
+      return { line: `Reach ${now}% → ${Math.min(100, now + 14)}%`,
+               warn: state.inventory < 25 ? "Stock too low" : undefined };
     }
     case "quality":
-      return { line: `Quality ${state.quality}% → ${Math.min(100, state.quality + 7)}%`,
-               warn: state.quality >= 93 ? "Near the maximum" : undefined };
+      return { line: `Quality ${Math.round(state.quality)}% → ${Math.round(Math.min(100, state.quality + 7))}%`,
+               warn: state.quality >= 93 ? "Near max" : undefined };
     case "hire": {
       const used = opened && state.serviceCapacity > 0 ? Math.round((state.customers / state.serviceCapacity) * 100) : null;
-      return { line: `Capacity ${state.serviceCapacity} → ${Math.min(600, state.serviceCapacity + 15)}/day`,
-               warn: used !== null && used < 70 ? `Only ${used}% used — adds wages` : undefined };
+      return { line: `Serve ${state.serviceCapacity} → ${Math.min(600, state.serviceCapacity + 15)}`,
+               warn: used !== null && used < 70 ? `Only ${used}% used` : undefined };
     }
     case "raise-price":
       return { line: `Price ${state.priceIndex} → ${Math.min(140, state.priceIndex + 6)}`,
-               warn: state.consecutivePriceRaises >= 2 ? "Customers are noticing" : undefined };
+               warn: state.consecutivePriceRaises >= 2 ? "They are noticing" : undefined };
     case "lower-price":
       return { line: `Price ${state.priceIndex} → ${Math.max(100, state.priceIndex - 6)}` };
     case "supply-contract":
-      return { line: "Stock stays near 78% by itself",
-               warn: spanDays < 14 ? "Best on longer periods" : undefined };
+      return { line: "Stock refills itself",
+               warn: spanDays < 14 ? "Better later" : undefined };
     case "hire-manager":
-      return { line: "Steadier service · +₹2,600/day" };
+      return { line: "Steadier service · +₹2.6k/day" };
     case "extend-hours":
-      return { line: `Capacity ${state.serviceCapacity} → ${Math.min(600, state.serviceCapacity + 40)}/day`,
-               warn: state.inventory < 30 ? "Needs more stock" : undefined };
+      return { line: `Serve ${state.serviceCapacity} → ${Math.min(600, state.serviceCapacity + 40)}`,
+               warn: state.inventory < 30 ? "Needs stock" : undefined };
     case "loyalty-programme":
-      return { line: "Regulars return more often",
-               warn: state.reputation < 45 ? "Works better once liked" : undefined };
+      return { line: "Regulars return more",
+               warn: state.reputation < 45 ? "Needs goodwill" : undefined };
     default:
-      return { line: `Spend nothing this ${spanDays > 1 ? "period" : "day"}`,
+      return { line: `Spend nothing`,
                warn: state.inventory < 20 ? "Stock is low" : undefined };
   }
 }
@@ -170,14 +170,21 @@ export default function Home() {
   const [ledgerOpen, setLedgerOpen] = useState(false);
   const [milestonesOpen, setMilestonesOpen] = useState(false);
   const [restockOpen, setRestockOpen] = useState(false);
+  const [coach, setCoach] = useState(-1);
+  useEffect(() => {
+    if (screen === "game" && state?.setupComplete && localStorage.getItem("bs-coached") !== "1") setCoach(0);
+  }, [screen, state?.setupComplete]);
   const [audio, setAudio] = useState(false);
   useEffect(() => { setAudio(soundOn()); }, []);
   useEffect(() => {
     if (!audio) { stopMusic(); return; }
-    const kick = () => { startMusic(); window.removeEventListener("pointerdown", kick); };
-    window.addEventListener("pointerdown", kick, { once: true });
+    // Browsers block audio until the player touches the page, so latch onto
+    // the first interaction anywhere — including the very first name screen.
+    const kick = () => startMusic();
+    window.addEventListener("pointerdown", kick);
+    window.addEventListener("keydown", kick);
     startMusic();
-    return () => window.removeEventListener("pointerdown", kick);
+    return () => { window.removeEventListener("pointerdown", kick); window.removeEventListener("keydown", kick); };
   }, [audio]);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
 
@@ -266,7 +273,7 @@ export default function Home() {
     <Screen>
       <Eyebrow>Welcome</Eyebrow>
       <H1>Build it. Run it.<br />See what happens.</H1>
-      <P>A cafe in Mumbai. One year to make it work. Every decision has consequences — and there are no perfect answers.</P>
+      <P>Open a cafe in Mumbai and keep it alive for a year. You make the calls. The money is real.</P>
       <label className="field-label" htmlFor="yourname">First, what should we call you?</label>
       <input id="yourname" className="input" value={name} maxLength={60} autoFocus
         onChange={e => setName(e.target.value)} onKeyDown={e => e.key === "Enter" && saveName()} placeholder="Your name" />
@@ -426,6 +433,7 @@ export default function Home() {
       {summary && <DaySummary {...summary} onClose={() => setSummary(null)} />}
       {!summary && promoted && <PromotionModal {...promoted} onClose={() => setPromoted(null)} />}
       {detail && <MetricDetail metric={detail} state={state} onClose={() => setDetail(null)} />}
+      {coach >= 0 && <Coach step={coach} onNext={() => setCoach(c => c + 1)} onDone={() => { localStorage.setItem("bs-coached", "1"); setCoach(-1); }} />}
       {restockOpen && (
         <RestockModal state={state} spanDays={spanDays} cash={state.cash}
           onPick={(d) => { sfx.select(); setPicked(p => [...p.filter(x => !x.startsWith("inventory")), d]); setRestockOpen(false); }}
@@ -436,6 +444,30 @@ export default function Home() {
       {historyOpen && <HistoryModal state={state} onClose={() => setHistoryOpen(false)} />}
       {feedbackOpen && <FeedbackModal onDone={submitFeedback} />}
     </main>
+  );
+}
+
+const COACH: Array<{ title: string; body: string }> = [
+  { title: "This is your cafe", body: "The picture shows how busy you were. Tap it any time to open the books and see where the money went." },
+  { title: "These six numbers are the business", body: "Cash, customers, profit, reputation, stock and staff. Tap any one of them and it will explain itself in plain words." },
+  { title: "One decision a day", body: "Pick something, then finish the day and see what happened. There is no right answer — every choice costs you something." },
+  { title: "It gets faster", body: "After the first week you will plan a week at a time, then a month. Your cafe has a year to prove itself." },
+];
+
+function Coach({ step, onNext, onDone }: { step: number; onNext: () => void; onDone: () => void }) {
+  const item = COACH[step];
+  if (!item) { onDone(); return null; }
+  const last = step === COACH.length - 1;
+  return (
+    <div className="backdrop coach-back">
+      <div className="sheet coach">
+        <div className="coach-dots">{COACH.map((_, i) => <i key={i} className={i <= step ? "on" : ""} />)}</div>
+        <h2>{item.title}</h2>
+        <p>{item.body}</p>
+        <button className="primary" onClick={() => (last ? onDone() : onNext())}>{last ? "Let me run it" : "Next"}</button>
+        {!last && <button className="text-button" onClick={onDone}>Skip</button>}
+      </div>
+    </div>
   );
 }
 
