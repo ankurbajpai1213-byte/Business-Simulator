@@ -117,8 +117,12 @@ export async function POST(request: Request) {
       if (nextState.cash <= 0) break; // stop early rather than simulate a dead business
 
       // The business should not sit closed for days the player cannot influence.
+      // Interruptions are for genuine emergencies only — a turn that constantly
+      // breaks apart defeats the whole point of planning further ahead.
       const lastDayOfSpan = i === span - 1;
-      if (!lastDayOfSpan) {
+      const daysRun = i + 1;
+      const enoughRun = daysRun >= Math.max(2, Math.ceil(span * 0.5));
+      if (!lastDayOfSpan && enoughRun) {
         let stop: Interruption | null = null;
         if (nextState.inventory < 14) {
           stop = { day: nextState.day, reason: "stockout", message: "Stock is nearly gone. Another busy day and you will be turning people away while the rent still has to be paid." };
@@ -127,9 +131,10 @@ export async function POST(request: Request) {
         }
         if (stop) { report.interrupted = stop; report.days = i + 1; break; }
 
-        // Something happening mid-period should interrupt, not wait politely for the turn to end.
-        const midEvent = generateEvent(nextState);
-        if (midEvent) {
+        // Only a serious situation is worth breaking the period for. Everything
+        // milder waits and is presented when the turn finishes.
+        const midEvent = span >= 7 ? generateEvent(nextState) : null;
+        if (midEvent && midEvent.severity >= 3) {
           nextState.currentEvent = midEvent;
           report.interrupted = { day: nextState.day, reason: "event", message: `${midEvent.title}. This needs your attention before the ${span >= 28 ? "month" : span >= 14 ? "fortnight" : "week"} can continue.` };
           report.days = i + 1;
