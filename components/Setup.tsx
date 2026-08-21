@@ -74,8 +74,8 @@ export default function Setup({ cafeName, onOpen, onBack, busy, error }: {
           <div className="flow-scroll">
           {step === "capital" && <>
             <div className="eyebrow">Step 1 of 5</div>
-            <h1>How much are you putting in?</h1>
-            <p>This is your everything. Setup comes out of it — what&rsquo;s left keeps you alive.</p>
+            <h1>How much money do you have?</h1>
+            <p>Building the cafe costs money. Whatever is left over pays the bills until you start earning.</p>
             <CapitalArt level={CAPITAL_OPTIONS.indexOf(capital as typeof CAPITAL_OPTIONS[number])} />
             <div className="stack">
               {CAPITAL_OPTIONS.map(v => (
@@ -89,8 +89,8 @@ export default function Setup({ cafeName, onOpen, onBack, busy, error }: {
 
           {step === "location" && <>
             <div className="eyebrow">Step 2 of 5</div>
-            <h1>Where are you opening?</h1>
-            <p>Rent is monthly, and it never stops. Busier streets cost more and expect more.</p>
+            <h1>Where will it be?</h1>
+            <p>Busy streets bring more people but cost more rent. Rent is due every month, good day or bad.</p>
             <div className="stack">
               {LOCATION_OPTIONS.map(o => (
                 <button key={o.id} className={`choice-card art-row ${location === o.id ? "selected" : ""}`} onClick={() => setLocation(o.id)}>
@@ -107,8 +107,8 @@ export default function Setup({ cafeName, onOpen, onBack, busy, error }: {
 
           {step === "format" && <>
             <div className="eyebrow">Step 3 of 5</div>
-            <h1>What are you building?</h1>
-            <p>This sets how many people you can serve a day — and what you&rsquo;re allowed to cook.</p>
+            <h1>What kind of place?</h1>
+            <p>Bigger places serve more people and can cook more things. They also cost more to build.</p>
             <div className="stack">
               {FORMAT_OPTIONS.map(o => (
                 <button key={o.id} className={`choice-card art-row ${format === o.id ? "selected" : ""}`} onClick={() => setFormat(o.id)}>
@@ -125,8 +125,8 @@ export default function Setup({ cafeName, onOpen, onBack, busy, error }: {
 
           {step === "menu" && <>
             <div className="eyebrow">Step 4 of 5</div>
-            <h1>What are you selling?</h1>
-            <p>Every item costs money to set up and to run each week. {menu.length} chosen so far.</p>
+            <h1>What will you sell?</h1>
+            <p>Each item costs money to start and to keep making. Pick a few to begin. You have {menu.length}.</p>
             <div className="groups">
               {GROUPS.map(g => {
                 const avail = g.ids.filter(supports).length;
@@ -165,7 +165,7 @@ export default function Setup({ cafeName, onOpen, onBack, busy, error }: {
           {step === "plan" && <>
             <div className="eyebrow">Step 5 of 5</div>
             <h1>{cafeName} is ready.</h1>
-            <p>Last look before you unlock the door.</p>
+            <p>Here is what you have built. Happy with it?</p>
             <div className="plan-hero"><FormatArt id={format} /></div>
             <div className="plan-rows">
               <div><span>Location</span><strong>{LOCATION_OPTIONS.find(x => x.id === location)?.name}</strong></div>
