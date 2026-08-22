@@ -283,8 +283,13 @@ export default function Home() {
     finally { setBusy(false); }
   };
 
+  const feedbackSent = useRef(false);
   const submitFeedback = async (answers: Record<string, string | boolean | undefined>) => {
     if (!state) return;
+    // One submission per run. Guards against a double tap and against the
+    // effect firing twice, both of which were writing duplicate rows.
+    if (feedbackSent.current || localStorage.getItem("bs-feedback-asked") === "1") { setFeedbackOpen(false); return; }
+    feedbackSent.current = true;
     await fetch("/api/feedback", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...answers, sessionDays: state.day }) });
     localStorage.setItem("bs-feedback-asked", "1");
     setFeedbackOpen(false);
