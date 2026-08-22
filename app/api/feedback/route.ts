@@ -1,16 +1,15 @@
 import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
 import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
-
-const SESSION_COOKIE = "bs_session";
-const PLAYER_COOKIE = "bs_player";
+import { getSessionIdentity, getOwnedSession } from "@/lib/sessionAuth";
 
 export async function POST(request: Request) {
   try {
     const body = await request.json() as { ease?: string; gameplay?: string; realism?: string; decisions?: string; continuePlaying?: string; comment?: string; skipped?: boolean; sessionDays?: number };
-    const sessionId = (await cookies()).get(SESSION_COOKIE)?.value ?? null;
-    const playerId = (await cookies()).get(PLAYER_COOKIE)?.value ?? null;
-    if (!sessionId) return NextResponse.json({ error: "No active game session." }, { status: 401 });
+    // Feedback may only be filed against a session the player actually owns.
+    const { sessionId, playerId } = await getSessionIdentity();
+    if (!sessionId || !playerId) return NextResponse.json({ error: "No active game session." }, { status: 401 });
+    const owned = await getOwnedSession(sessionId, playerId);
+    if (!owned) return NextResponse.json({ error: "Game session not found." }, { status: 404 });
     const supabase = getSupabaseAdmin();
     // A second submission for the same session and day is a duplicate, not new data.
     if (sessionId) {
