@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
 import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
 import { applyDecision, advanceDay, applyEvent, generateEvent, isDecisionAvailable, type Decision, type GameEventId, type GameState } from "@/lib/simulation";
 import { applyDelayedEffect, createDelayedEffects, shouldShowMilestone, type DelayedEffect } from "@/lib/simulation-engine-v2";
 import { daysThisTurn, slotsForTurn, RUN_LENGTH_DAYS, type Interruption, type SpanReport } from "@/lib/cadence";
+import { getSessionIdentity, getOwnedSession } from "@/lib/sessionAuth";
 
 const SESSION_COOKIE = "bs_session";
 const decisions = new Set<Decision>(["raise-price", "lower-price", "marketing", "hire", "quality", "inventory", "inventory-2", "inventory-3", "no-action", "supply-contract", "hire-manager", "extend-hours", "loyalty-programme"]);
@@ -12,11 +12,12 @@ type V2State = GameState & { pendingDelayedEffects?: DelayedEffect[] };
 export async function POST(request: Request) {
   try {
     const body = (await request.json()) as { decision?: Decision; decisions?: Decision[]; eventOption?: string };
-    const sessionId = (await cookies()).get(SESSION_COOKIE)?.value;
-    if (!sessionId) return NextResponse.json({ error: "No active game session." }, { status: 401 });
+    // A turn may only be played on a session belonging to the current player.
+    const { sessionId, playerId } = await getSessionIdentity();
+    if (!sessionId || !playerId) return NextResponse.json({ error: "No active game session." }, { status: 401 });
     const supabase = getSupabaseAdmin();
-    const { data: session, error: loadError } = await supabase.from("game_sessions").select("id, state, status").eq("id", sessionId).single();
-    if (loadError || !session) return NextResponse.json({ error: "Game session not found." }, { status: 404 });
+    const session = await getOwnedSession(sessionId, playerId);
+    if (!session) return NextResponse.json({ error: "Game session not found." }, { status: 404 });
     if (session.status !== "active") return NextResponse.json({ error: "This game is already finished." }, { status: 409 });
 
     const originalState = session.state as V2State;
