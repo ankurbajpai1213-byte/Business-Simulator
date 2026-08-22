@@ -545,3 +545,22 @@ p.lead{font-size:16px;color:var(--ink);opacity:.82}
 .ad-fb b{display:block;font-size:12.5px;margin-top:2px}
 .ad-fb em{display:block;font-size:12.5px;margin-top:3px;font-style:normal;color:var(--ink)}
 @media(max-width:820px){.ad-cols{grid-template-columns:1fr}.ad-stats{grid-template-columns:repeat(3,1fr)}}
+
+
+/* ---------- modals: centre what is read, bottom what is tapped ----------
+   Everything the player has to READ sits in the middle of the screen, where the
+   eye actually rests. Only pickers stay as bottom sheets, where the thumb is. */
+.backdrop{align-items:center;padding:16px}
+.sheet{border-radius:20px;max-height:86dvh;width:min(460px,100%)}
+.backdrop.pick{align-items:flex-end;padding:0}
+.backdrop.pick .sheet{border-radius:20px 20px 0 0;width:min(520px,100%);padding-bottom:calc(24px + env(safe-area-inset-bottom))}
+@media(min-width:560px){.backdrop.pick{align-items:center;padding:16px}.backdrop.pick .sheet{border-radius:20px}}
+
+/* ---------- centre toast ---------- */
+.toast-wrap{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;z-index:70;padding:20px}
+.toast{background:rgba(31,29,26,.93);color:#fff;border-radius:14px;padding:14px 18px;max-width:320px;text-align:center;font-size:14.5px;line-height:1.45;font-weight:500;box-shadow:0 12px 40px rgba(31,29,26,.3);animation:toastin .3s cubic-bezier(.34,1.56,.64,1)}
+.toast i{display:block;font-style:normal;font-size:22px;margin-bottom:6px}
+@keyframes toastin{from{opacity:0;transform:scale(.9) translateY(8px)}to{opacity:1;transform:none}}
+.toast.out{animation:toastout .35s ease forwards}
+@keyframes toastout{to{opacity:0;transform:scale(.97)}}
+@media(prefers-reduced-motion:reduce){.toast,.toast.out{animation:none}}
