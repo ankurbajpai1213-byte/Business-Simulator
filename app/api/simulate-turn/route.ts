@@ -96,7 +96,7 @@ export async function POST(request: Request) {
 
       // Do not simulate a day the business cannot trade through.
       if (i > 0 && nextState.inventory < 2) {
-        report.interrupted = { day: nextState.day, reason: "stockout", message: "You have run out of stock. The cafe cannot open again until you restock." };
+        report.interrupted = { day: nextState.day, reason: "stockout", message: "You have run out of supplies. The cafe cannot open again until you restock." };
         report.days = i;
         break;
       }
@@ -122,14 +122,19 @@ export async function POST(request: Request) {
       const lastDayOfSpan = i === span - 1;
       const daysRun = i + 1;
       const enoughRun = daysRun >= Math.max(2, Math.ceil(span * 0.5));
-      if (!lastDayOfSpan && enoughRun) {
+      if (!lastDayOfSpan) {
+        // An emergency stops the period immediately, however early it happens.
+        // Waiting for "enough" days to pass is how a cafe ends up shut for three
+        // days the player never got to see.
         let stop: Interruption | null = null;
         if (nextState.inventory < 14) {
-          stop = { day: nextState.day, reason: "stockout", message: "Stock is nearly gone. Another busy day and you will be turning people away while the rent still has to be paid." };
+          stop = { day: nextState.day, reason: "stockout", message: "Supplies are nearly gone. Another busy day and you will be turning people away while the rent still has to be paid." };
         } else if (nextState.profit < 0 && nextState.cash < Math.abs(nextState.profit) * 5) {
           stop = { day: nextState.day, reason: "cash-critical", message: "Cash is running dangerously low. At this rate the business has only a few days left." };
         }
         if (stop) { report.interrupted = stop; report.days = i + 1; break; }
+      }
+      if (!lastDayOfSpan && enoughRun) {
 
         // Only a serious situation is worth breaking the period for. Everything
         // milder waits and is presented when the turn finishes.
