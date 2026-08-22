@@ -55,7 +55,7 @@ function outlook(id: Decision, state: GameState, spanDays: number): { line: stri
     case "marketing": {
       const now = Math.round(state.marketing);
       return { line: `Reach ${now}% → ${Math.min(100, now + 14)}%`,
-               warn: state.inventory < 25 ? "Stock too low" : undefined };
+               warn: state.inventory < 25 ? "Supplies too low" : undefined };
     }
     case "quality":
       return { line: `Quality ${Math.round(state.quality)}% → ${Math.round(Math.min(100, state.quality + 7))}%`,
@@ -71,19 +71,19 @@ function outlook(id: Decision, state: GameState, spanDays: number): { line: stri
     case "lower-price":
       return { line: `Price ${state.priceIndex} → ${Math.max(100, state.priceIndex - 6)}` };
     case "supply-contract":
-      return { line: "Stock refills itself",
+      return { line: "Supplies refill themselves",
                warn: spanDays < 14 ? "Better later" : undefined };
     case "hire-manager":
       return { line: "Steadier service · +₹2.6k/day" };
     case "extend-hours":
       return { line: `Serve ${state.serviceCapacity} → ${Math.min(600, state.serviceCapacity + 40)}`,
-               warn: state.inventory < 30 ? "Needs stock" : undefined };
+               warn: state.inventory < 30 ? "Needs supplies" : undefined };
     case "loyalty-programme":
       return { line: "Regulars return more",
                warn: state.reputation < 45 ? "Needs goodwill" : undefined };
     default:
       return { line: `Spend nothing`,
-               warn: state.inventory < 20 ? "Stock is low" : undefined };
+               warn: state.inventory < 20 ? "Supplies are low" : undefined };
   }
 }
 
@@ -111,7 +111,11 @@ const RESTOCKS: Array<[Decision, string, number, number]> = [
 /** How many delivery sizes are on offer, by how long the turn is. */
 const restockChoices = (spanDays: number) => (spanDays >= 14 ? 3 : spanDays >= 7 ? 2 : 1);
 const STRATEGIC = new Set<Decision>(["supply-contract", "hire-manager", "extend-hours", "loyalty-programme"]);
-const decisionName = (id: Decision) => DECISIONS.find(x => x[0] === id)?.[1] ?? "your decision";
+const EXTRA_NAMES: Partial<Record<Decision, string>> = {
+  "inventory-2": "order a double delivery",
+  "inventory-3": "order a full restock",
+};
+const decisionName = (id: Decision) => EXTRA_NAMES[id] ?? DECISIONS.find(x => x[0] === id)?.[1] ?? "keep things steady";
 
 const EVENT_NAMES: Record<string, string> = {
   "health-inspection": "Health inspection", "rent-hike": "Landlord raised the rent",
@@ -163,7 +167,7 @@ const MILESTONES: Record<string, string> = {
   "crisis-survived": "Survived a crisis", "bounce-back": "Bounced back",
   "reputation-60": "Getting noticed", "reputation-80": "Local favourite",
   "day-5": "Five days", "day-10": "Ten days", "day-30": "Thirty days",
-  "week-one": "First week", "month-one": "First month", "profit-500k": "₹5L profit",
+  "week-one": "First week", "month-one": "First month",
 };
 
 type MetricKey = "cash" | "customers" | "profit" | "reputation" | "stock" | "staff";
@@ -187,6 +191,7 @@ export default function Home() {
   const [ledgerOpen, setLedgerOpen] = useState(false);
   const [milestonesOpen, setMilestonesOpen] = useState(false);
   const [restockOpen, setRestockOpen] = useState(false);
+  const [explain, setExplain] = useState<Decision | null>(null);
   const [coach, setCoach] = useState(-1);
   useEffect(() => {
     if (screen === "game" && state?.setupComplete && localStorage.getItem("bs-coached") !== "1") setCoach(0);
@@ -351,6 +356,7 @@ export default function Home() {
   const available = new Set(getAvailableDecisions(state));
   const slots = slotsForTurn(state.day);
   const spanDays = stageFor(state.day).days;
+  const nudge = nudgeFor(state);
   const location = LOCATION_OPTIONS.find(x => x.id === state.location);
   const format = FORMAT_OPTIONS.find(x => x.id === state.format);
 
@@ -379,10 +385,11 @@ export default function Home() {
           <Metric label="Customers" value={state.day <= 1 ? "—" : state.customers.toLocaleString("en-IN")} series={series("customers")} onClick={() => setDetail("customers")} />
           <Metric label="Profit" value={state.day <= 1 ? "—" : formatCompactINR(state.profit)} tone={state.profit >= 0 ? "pos" : "neg"} series={series("profit")} onClick={() => setDetail("profit")} />
           <Metric label="Reputation" value={`${Math.round(state.reputation)}%`} series={series("reputation")} onClick={() => setDetail("reputation")} />
-          <Metric label="Stock" value={`${Math.round(state.inventory)}%`} tone={state.inventory < 20 ? "neg" : undefined} series={series("inventory")} onClick={() => setDetail("stock")} />
+          <Metric label="Supplies" value={`${Math.round(state.inventory)}%`} tone={state.inventory < 20 ? "neg" : undefined} series={series("inventory")} onClick={() => setDetail("stock")} />
           <Metric label="Staff" value={`${state.staff}%`} onClick={() => setDetail("staff")} />
         </div>
 
+        {nudge && <div className="nudge"><i>💡</i><span>{nudge}</span></div>}
         <section className="card play-card">
           <div className="play-head">
           {state.currentEvent && eventOption && (
@@ -433,8 +440,11 @@ export default function Home() {
                       else if (ok) { sfx.tap(); setRestockOpen(true); }
                       return;
                     }
-                    if (on) { sfx.tap(); setPicked(p => p.filter(x => x !== id)); }
-                    else if (ok) { sfx.select(); setPicked(p => [...p, id]); }
+                    if (on) { sfx.tap(); setPicked(p => p.filter(x => x !== id)); return; }
+                    if (!ok) return;
+                    // Big, one-off commitments deserve a proper read before you spend.
+                    if (STRATEGIC.has(id)) { sfx.tap(); setExplain(id); return; }
+                    sfx.select(); setPicked(p => [...p, id]);
                   }}
                   disabled={busy || (!ok && !on)}>
                   <div className="dec-row">
@@ -468,6 +478,11 @@ export default function Home() {
       {!summary && promoted && <PromotionModal {...promoted} onClose={() => setPromoted(null)} />}
       {detail && <MetricDetail metric={detail} state={state} onClose={() => setDetail(null)} />}
       {coach >= 0 && <Coach step={coach} onNext={() => setCoach(c => c + 1)} onDone={() => { localStorage.setItem("bs-coached", "1"); setCoach(-1); }} />}
+      {explain && (
+        <ExplainModal id={explain} state={state} spanDays={spanDays}
+          onConfirm={() => { sfx.select(); setPicked(p => [...p, explain]); setExplain(null); }}
+          onClose={() => setExplain(null)} />
+      )}
       {restockOpen && (
         <RestockModal state={state} spanDays={spanDays} cash={state.cash}
           onPick={(d) => { sfx.select(); setPicked(p => [...p.filter(x => !x.startsWith("inventory")), d]); setRestockOpen(false); }}
@@ -502,6 +517,56 @@ function Coach({ step, onNext, onDone }: { step: number; onNext: () => void; onD
         {!last && <button className="text-button" onClick={onDone}>Skip</button>}
       </div>
     </div>
+  );
+}
+
+const STRATEGIC_DETAIL: Partial<Record<Decision, { what: string; costs: string; good: string; careful: string }>> = {
+  "supply-contract": {
+    what: "A standing arrangement with your supplier. Deliveries arrive on their own and keep your shelves near three-quarters full, without you ordering anything.",
+    costs: "₹35,000 once, then about 3.5% of everything you sell.",
+    good: "You stop losing days to empty shelves when you are planning a month at a time.",
+    careful: "You pay that share on every sale, forever. On a small operation it may not be worth it.",
+  },
+  "hire-manager": {
+    what: "Someone experienced to run the floor so you are not the only one holding it together.",
+    costs: "₹45,000 to bring them in, then ₹2,600 every day in wages.",
+    good: "Service holds up when you are busy, and your reputation stops swinging so hard.",
+    careful: "Those wages come out whether the cafe is full or empty.",
+  },
+  "extend-hours": {
+    what: "Open earlier and close later, catching the trade you currently miss.",
+    costs: "₹22,000 to set up, then ₹1,900 a day in extra wages.",
+    good: "You can serve around 40 more people a day.",
+    careful: "More hours means more supplies. Empty shelves get here faster.",
+  },
+  "loyalty-programme": {
+    what: "A simple scheme that gives your regulars a reason to keep coming back.",
+    costs: "₹30,000 to start, then ₹700 a day to run.",
+    good: "A steady, permanent lift to how many people walk in.",
+    careful: "It rewards goodwill you already have. If people do not like you yet, it does little.",
+  },
+};
+
+function ExplainModal({ id, state, spanDays, onConfirm, onClose }: { id: Decision; state: GameState; spanDays: number; onConfirm: () => void; onClose: () => void }) {
+  const d = STRATEGIC_DETAIL[id];
+  const look = outlook(id, state, spanDays);
+  const title = DECISIONS.find(x => x[0] === id)?.[1] ?? "This decision";
+  const cost = DECISIONS.find(x => x[0] === id)?.[2] ?? "";
+  if (!d) return null;
+  return (
+    <Modal onClose={onClose}>
+      <div className="eyebrow">Long term · {cost}</div>
+      <h2>{title}</h2>
+      <p className="detail-what">{d.what}</p>
+      <div className="explain-rows">
+        <div><span>What it costs</span><strong>{d.costs}</strong></div>
+        <div><span>What you get</span><strong>{d.good}</strong></div>
+        <div><span>Worth knowing</span><strong>{d.careful}</strong></div>
+      </div>
+      {look.warn && <div className="sum-alert">{look.warn}</div>}
+      <button className="primary" onClick={onConfirm}>Do it</button>
+      <button className="text-button" onClick={onClose}>Not now</button>
+    </Modal>
   );
 }
 
@@ -554,7 +619,7 @@ function LedgerModal({ state, onClose }: { state: GameState; onClose: () => void
         <div><span>Customers served</span><strong>{state.customers}</strong></div>
         <div><span>Revenue</span><strong>{formatINR(state.revenue)}</strong></div>
         <div><span>Profit</span><strong className={state.profit >= 0 ? "pos" : "neg"}>{formatINR(state.profit)}</strong></div>
-        <div><span>Stock wasted</span><strong>{formatINR(state.wastageToday)}</strong></div>
+        <div><span>Supplies wasted</span><strong>{formatINR(state.wastageToday)}</strong></div>
       </div>
 
       <div className="ledger-head">What it costs to open the doors</div>
@@ -657,7 +722,7 @@ function MetricDetail({ metric, state, onClose }: { metric: MetricKey; state: Ga
       note: `Reputation follows quality. It can sit up to 22 points above your quality of ${state.quality}%, but no higher — push past that and it drifts back down. It also falls when you run out of stock, raise prices repeatedly, or serve nobody at all.`,
     },
     stock: {
-      title: "Stock", big: `${Math.round(state.inventory)}%`,
+      title: "Supplies", big: `${Math.round(state.inventory)}%`,
       what: "How much you have to sell. Run out and you turn people away; hold too much and it spoils.",
       rows: [["Days of cover", `${stockCover} days at yesterday's trade`],
              ["Wasted yesterday", formatINR(state.wastageToday)],
@@ -715,6 +780,26 @@ function EventModal({ event, cash, onChoose }: { event: NonNullable<GameState["c
   );
 }
 
+/** A short nudge that points, without telling the player what to do. */
+function nudgeFor(state: GameState): string | null {
+  const cap = state.serviceCapacity > 0 ? state.customers / state.serviceCapacity : 0;
+  const burn = Math.max(3, Math.round(Math.max(1, state.customers) / 9));
+  const cover = Math.round(state.inventory / burn);
+  if (state.day <= 1) return "Your shelves start part-full. Keep an eye on them.";
+  if (state.inventory < 20) return "The shelves are nearly bare.";
+  if (cover <= 3) return `About ${cover} days of supplies left at this rate.`;
+  if (state.cash < 100000 && state.profit < 0) return "Cash is getting thin, and rent does not wait.";
+  if (cap > 0.92) return "You are turning people away at the busiest times.";
+  if (cap < 0.45 && state.staff > 60) return "Plenty of empty seats — you are paying for space you are not using.";
+  if (state.reputation > state.quality + 8) return "People expect more than you are currently serving.";
+  if (state.quality < 55) return "The product itself is starting to hold you back.";
+  if (state.consecutivePriceRaises >= 2) return "That is two price rises in a row. Regulars notice.";
+  if (state.reputation >= 75 && state.marketing < 40) return "People like you. More of them could hear about it.";
+  if (state.profitStreak >= 3) return "Three good runs. A good time to invest in something.";
+  if (state.inventory > 85) return "You are holding more than you can sell before it turns.";
+  return null;
+}
+
 function Journey({ state, onOpen }: { state: GameState; onOpen: () => void }) {
   const pct = Math.min(100, Math.round((state.day / RUN_LENGTH_DAYS) * 100));
   const earned = state.milestones.filter(m => MILESTONES[m]).length;
@@ -766,91 +851,61 @@ function MilestoneModal({ state, onClose }: { state: GameState; onClose: () => v
 }
 
 function DaySummary({ before, after, decision, picked, report, onClose }: { before: GameState; after: GameState; decision: Decision; picked: Decision[]; report?: SpanReport; onClose: () => void }) {
+  const [open, setOpen] = useState(false);
   const multi = !!report && report.days > 1;
+  const money = report ? Math.round(report.profit) : Math.round(after.profit);
+  const custs = report ? report.customers : after.customers;
   const dCustomers = after.customers - before.customers;
-  const dProfit = Math.round(after.profit - before.profit);
-  const dRep = Math.round((after.reputation - before.reputation) * 10) / 10;
-  const spent = Math.max(0, before.cash + (report ? report.profit : after.profit) - after.cash);
-  const sign = (n: number) => (n > 0 ? `+${n.toLocaleString("en-IN")}` : n.toLocaleString("en-IN"));
-  const cls = (n: number) => (n > 0 ? "pos" : n < 0 ? "neg" : "");
-  const custSeries = [...after.dayHistory.slice(-14).map(r => r.customers)];
   const fresh = after.milestones.filter(m => !before.milestones.includes(m) && MILESTONES[m]);
-  const madeMoney = report ? report.profit > 0 : after.profit > 0;
-  const wentBadly = (report ? report.profit < 0 : after.profit < 0) || !!report?.interrupted;
-  // Celebrate only genuinely good news. A milestone earned on a losing period is not a party.
-  const won = madeMoney && !wentBadly;
+  const madeMoney = money > 0;
+  const won = madeMoney && !report?.interrupted;
   const unit = report ? (report.days === 7 ? "week" : report.days === 14 ? "fortnight" : report.days >= 28 ? "month" : `${report.days} days`) : "day";
-
-  const acted = picked.filter(p => p !== "no-action");
-  const listed = acted.map(p => decisionName(p).toLowerCase());
-  const phrase = listed.length > 1 ? `${listed.slice(0, -1).join(", ")} and ${listed[listed.length - 1]}` : listed[0];
-
-  const verdict = (() => {
-    const d = phrase ?? decisionName(decision).toLowerCase();
-    if (multi && report && acted.length > 1) {
-      const avg = Math.round(report.customers / report.days);
-      const money = report.profit >= 0 ? `made ${formatINR(Math.round(report.profit))}` : `lost ${formatINR(Math.abs(Math.round(report.profit)))}`;
-      return `You chose to ${d}. Over the ${unit} the cafe ${money}, averaging ${avg} customers a day.`;
-    }
-    if (multi && report) {
-      const avg = Math.round(report.customers / report.days);
-      const money = report.profit >= 0 ? `made ${formatINR(Math.round(report.profit))}` : `lost ${formatINR(Math.abs(Math.round(report.profit)))}`;
-      if (decision === "no-action") return `You held steady for a ${unit}. The cafe ${money}, averaging ${avg} customers a day.`;
-      return `You chose to ${d}. Over the ${unit} the cafe ${money}, averaging ${avg} customers a day.`;
-    }
-    if (decision === "no-action") return dProfit >= 0 ? "You left things alone and the day paid for itself." : "You left things alone and the costs still came.";
-    if (spent > 0 && dCustomers > 0) return `You spent ${formatINR(spent)} to ${d}. ${dCustomers} more people came in than yesterday.`;
-    if (spent > 0 && dCustomers < 0) return `You spent ${formatINR(spent)} to ${d}, and ${Math.abs(dCustomers)} fewer people came in than yesterday.`;
-    if (spent > 0) return `You spent ${formatINR(spent)} to ${d}. Footfall held steady.`;
-    if (dCustomers !== 0) return `You chose to ${d}. ${Math.abs(dCustomers)} ${dCustomers > 0 ? "more" : "fewer"} people came in than yesterday.`;
-    return `You chose to ${d}.`;
-  })();
+  const acted = picked.filter(p => p !== "no-action").map(p => decisionName(p).toLowerCase());
+  const did = acted.length > 1 ? `${acted.slice(0, -1).join(", ")} and ${acted[acted.length - 1]}` : acted[0] ?? "sat tight";
 
   return (
     <Modal onClose={onClose}>
       {won && <Confetti />}
-      {(report ? report.profit > 0 : after.profit > 0) && (
-        <div className="burst" aria-hidden="true">{[0,1,2,3,4,5].map(i => <i key={i} style={{ animationDelay: `${i * 70}ms`, left: `${12 + i * 14}%` }}>₹</i>)}</div>
-      )}
-      {fresh.length > 0 && (
-        <div className="milestone-pop"><b>Milestone{fresh.length > 1 ? "s" : ""}</b><span>{fresh.map(m => MILESTONES[m] ?? m).join(" · ")}</span></div>
-      )}
-      <div className="eyebrow">{multi && report ? `Days ${report.fromDay}–${report.toDay}` : `Day ${before.day} done`}</div>
-      {report?.interrupted && (
-        <div className="interrupt">
-          <strong>Stopped on day {report.interrupted.day}</strong>
-          <span>{report.interrupted.message}</span>
-        </div>
-      )}
-      <h2 className="verdict">{verdict}</h2>
+      <div className="sum">
+        <div className="sum-face">{report?.interrupted ? "😬" : madeMoney ? "🎉" : "😕"}</div>
+        <div className="eyebrow">{multi && report ? `That ${unit}` : `Day ${before.day}`}</div>
+        <div className={`sum-money ${madeMoney ? "pos" : "neg"}`}>{madeMoney ? "+" : ""}{formatCompactINR(money)}</div>
+        <div className="sum-sub">{custs.toLocaleString("en-IN")} customers{multi ? ` over ${report!.days} days` : ""} · you chose to {did}</div>
 
-      {multi && report ? (
-        <>
-          <div className="deltas">
-            <div><span>Customers served</span><strong>{report.customers.toLocaleString("en-IN")}</strong><small>over {report.days} days</small></div>
-            <div><span>Revenue</span><strong>{formatINR(Math.round(report.revenue))}</strong><small>{formatINR(Math.round(report.revenue / report.days))}/day</small></div>
-            <div><span>Profit</span><strong className={cls(report.profit)}>{formatINR(Math.round(report.profit))}</strong><small>{report.profitableDays} good days, {report.lossDays} bad</small></div>
-            <div><span>Cash now</span><strong className={cls(after.cash - before.cash)}>{formatINR(after.cash)}</strong><small>{sign(after.cash - before.cash)} this {unit}</small></div>
+        {report?.interrupted && <div className="sum-alert">{report.interrupted.message}</div>}
+
+        {fresh.length > 0 && (
+          <div className="sum-badges">{fresh.map(m => <span key={m}>🏅 {MILESTONES[m]}</span>)}</div>
+        )}
+
+        <div className="sum-three">
+          <div><span>Cash</span><strong>{formatCompactINR(after.cash)}</strong></div>
+          <div><span>Supplies</span><strong className={after.inventory < 20 ? "neg" : ""}>{Math.round(after.inventory)}%</strong></div>
+          <div><span>Reputation</span><strong>{Math.round(after.reputation)}%</strong></div>
+        </div>
+
+        {!open && <button className="text-button" onClick={() => setOpen(true)}>See the numbers</button>}
+        {open && (
+          <div className="sum-detail">
+            {report ? (
+              <>
+                <div><span>Revenue</span><strong>{formatINR(Math.round(report.revenue))}</strong></div>
+                <div><span>Good vs bad days</span><strong>{report.profitableDays} / {report.lossDays}</strong></div>
+                {report.bestDay && <div><span>Best day</span><strong>Day {report.bestDay.day} · {report.bestDay.customers} in</strong></div>}
+                {report.worstDay && <div><span>Worst day</span><strong>Day {report.worstDay.day} · {report.worstDay.customers} in</strong></div>}
+              </>
+            ) : (
+              <>
+                <div><span>Revenue</span><strong>{formatINR(after.revenue)}</strong></div>
+                <div><span>Vs yesterday</span><strong>{dCustomers >= 0 ? "+" : ""}{dCustomers} customers</strong></div>
+              </>
+            )}
+            <div><span>Since opening</span><strong>{formatINR(after.cumulativeProfit)} profit</strong></div>
           </div>
-          {(report.bestDay || report.worstDay) && (
-            <div className="extremes">
-              {report.bestDay && <div><span>Best day</span><strong className="pos">Day {report.bestDay.day}</strong><small>{report.bestDay.customers} customers · {formatINR(report.bestDay.profit)}</small></div>}
-              {report.worstDay && <div><span>Worst day</span><strong className="neg">Day {report.worstDay.day}</strong><small>{report.worstDay.customers} customers · {formatINR(report.worstDay.profit)}</small></div>}
-            </div>
-          )}
-        </>
-      ) : (
-        <div className="deltas">
-          <div><span>Customers</span><strong className={cls(dCustomers)}>{sign(dCustomers)}</strong><small>{after.customers} today</small></div>
-          <div><span>Profit</span><strong className={cls(dProfit)}>{sign(dProfit)}</strong><small>{formatINR(after.profit)} today</small></div>
-          <div><span>Reputation</span><strong className={cls(dRep)}>{sign(dRep)}</strong><small>{Math.round(after.reputation)}/100 now</small></div>
-          <div><span>Cash</span><strong className={cls(after.cash - before.cash)}>{sign(after.cash - before.cash)}</strong><small>{formatINR(after.cash)} left</small></div>
-        </div>
-      )}
+        )}
 
-      {custSeries.length > 2 && <div className="trend"><span>Customers, last {custSeries.length} days</span><Spark values={custSeries} /></div>}
-      {after.lastDayMessage && <p className="daymsg">{after.lastDayMessage}</p>}
-      <button className="primary" onClick={onClose}>Carry on</button>
+        <button className="primary" onClick={onClose}>Carry on</button>
+      </div>
     </Modal>
   );
 }
