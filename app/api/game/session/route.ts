@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
 import { INITIAL_STATE, upgradeLegacyState, type GameState } from "@/lib/simulation";
+import { getOwnedSession } from "@/lib/sessionAuth";
 
 const SESSION_COOKIE = "bs_session";
 const RELEASE_COOKIE = "bs_game_release";
@@ -25,8 +26,10 @@ export async function GET() {
     const supabase = getSupabaseAdmin();
 
     if (existingId && release === CURRENT_RELEASE) {
-      const { data, error } = await supabase.from("game_sessions").select("id, state, user_id").eq("id", existingId).eq("status", "active").maybeSingle();
-      if (error) throw error;
+      // Only resume a session that belongs to this player. A session cookie on its
+      // own is not proof of ownership.
+      const owned = await getOwnedSession(existingId, playerId);
+      const data = owned && owned.status === "active" ? owned : null;
       if (data) {
         const state = upgradeLegacyState(data.state as Partial<GameState>);
         if ((data.state as Partial<GameState>).version !== 4 || typeof (data.state as Partial<GameState>).wastageToday !== "number") await supabase.from("game_sessions").update({ state }).eq("id", data.id);
@@ -39,11 +42,14 @@ export async function GET() {
       // "abandoned" is the only closed status the database accepts here.
       // This previously wrote "superseded", which the check constraint rejected —
       // and because the error was ignored, old sessions stayed active forever.
+      // Scoped to this player: a session cookie alone must not be able to close
+      // somebody else's game.
       const { error: closeError } = await supabase
         .from("game_sessions")
         .update({ status: "abandoned" })
         .eq("id", existingId)
-        .eq("status", "active");
+        .eq("status", "active")
+        .eq("player_id", playerId ?? "00000000-0000-0000-0000-000000000000");
       if (closeError) console.error("[game/session] could not close previous session", closeError);
     }
 
