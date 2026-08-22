@@ -1,13 +1,14 @@
 import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
+import { getSessionIdentity, getOwnedSession } from "@/lib/sessionAuth";
 import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
-
-const SESSION_COOKIE = "bs_session";
 
 export async function GET() {
   try {
-    const sessionId = (await cookies()).get(SESSION_COOKIE)?.value;
-    if (!sessionId) return NextResponse.json({ error: "No active game session." }, { status: 401 });
+    const { sessionId, playerId } = await getSessionIdentity();
+    if (!sessionId || !playerId) return NextResponse.json({ error: "No active game session." }, { status: 401 });
+
+    const session = await getOwnedSession(sessionId, playerId);
+    if (!session) return NextResponse.json({ error: "Game session not found." }, { status: 404 });
 
     const supabase = getSupabaseAdmin();
     const { data, error } = await supabase
