@@ -1,18 +1,20 @@
 import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
-import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
+import { getSessionIdentity, getOwnedSession } from "@/lib/sessionAuth";
 import { INITIAL_STATE } from "@/lib/simulation";
 
 const SESSION_COOKIE = "bs_session";
 
 export async function POST() {
   try {
-    const cookieStore = await cookies();
-    const existingId = cookieStore.get(SESSION_COOKIE)?.value;
-    const supabase = getSupabaseAdmin();
+    const { sessionId, playerId } = await getSessionIdentity();
 
-    // Close the old run, but do not open a new row until the player sets up a cafe.
-    if (existingId) await supabase.from("game_sessions").update({ status: "abandoned" }).eq("id", existingId).eq("status", "active");
+    if (sessionId && playerId) {
+      const session = await getOwnedSession(sessionId, playerId);
+      if (session?.status === "active") {
+        const { getSupabaseAdmin } = await import("@/lib/supabaseAdmin");
+        await getSupabaseAdmin().from("game_sessions").update({ status: "abandoned" }).eq("id", sessionId).eq("player_id", playerId).eq("status", "active");
+      }
+    }
 
     const response = NextResponse.json({ state: INITIAL_STATE, sessionId: null });
     response.cookies.set(SESSION_COOKIE, "", { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "lax", path: "/", maxAge: 0 });
