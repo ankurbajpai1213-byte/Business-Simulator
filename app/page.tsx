@@ -109,7 +109,7 @@ const RESTOCKS: Array<[Decision, string, number, number]> = [
   ["inventory-3", "Full restock", 90, 21000],
 ];
 /** How many delivery sizes are on offer, by how long the turn is. */
-const restockChoices = (spanDays: number) => (spanDays >= 14 ? 3 : spanDays >= 7 ? 2 : 1);
+const restockChoices = (spanDays: number) => (spanDays >= 12 ? 3 : spanDays >= 5 ? 2 : 1);
 const STRATEGIC = new Set<Decision>(["supply-contract", "hire-manager", "extend-hours", "loyalty-programme"]);
 const EXTRA_NAMES: Partial<Record<Decision, string>> = {
   "inventory-2": "order a double delivery",
@@ -192,6 +192,8 @@ export default function Home() {
   const [milestonesOpen, setMilestonesOpen] = useState(false);
   const [restockOpen, setRestockOpen] = useState(false);
   const [explain, setExplain] = useState<Decision | null>(null);
+  const [toast, setToast] = useState<string | null>(null);
+  const lastToast = useRef<string | null>(null);
   const [coach, setCoach] = useState(-1);
   useEffect(() => {
     if (screen === "game" && state?.setupComplete && localStorage.getItem("bs-coached") !== "1") setCoach(0);
@@ -394,7 +396,6 @@ export default function Home() {
           <Metric label="Staff" value={`${state.staff}%`} onClick={() => setDetail("staff")} />
         </div>
 
-        {nudge && <div className="nudge"><i>💡</i><span>{nudge}</span></div>}
         <section className="card play-card">
           <div className="play-head">
           {state.currentEvent && eventOption && (
@@ -405,11 +406,11 @@ export default function Home() {
             </button>
           )}
           <Eyebrow>{turnLabel(state.day)}</Eyebrow>
-          <h2>{stageFor(state.day).id === "daily" ? `How will you run ${state.businessName || "the cafe"} today?` : `What\u2019s your plan for the next ${periodName(state.day)}?`}</h2>
+          <h2>{stageFor(state.day).id === "daily" ? `How will you run ${state.businessName || "the cafe"} today?` : `What\u2019s your plan for the next ${spanDays} days?`}</h2>
           <div className="slotline">
             {slots > 1
-              ? <>Choose up to <strong>{slots}</strong> things to do this {periodName(state.day)}. {picked.length} chosen.</>
-              : <>Choose <strong>one</strong> thing to do today.</>}
+              ? <>Choose up to <strong>{slots}</strong> things for these {spanDays} days. {picked.length} chosen.</>
+              : <>Choose <strong>one</strong> thing{spanDays > 1 ? ` for these ${spanDays} days` : " to do today"}.</>}
           </div>
           </div>
           <div className="dec-grid">
@@ -469,7 +470,7 @@ export default function Home() {
           </div>
           <Journey state={state} onOpen={() => setMilestonesOpen(true)} />
           <button className="primary" onClick={finishDay} disabled={busy || picked.length === 0 || !!(state.currentEvent && !eventOption)}>
-            {busy ? "Playing it out…" : stageFor(state.day).id === "daily" ? "Finish the day" : `Run the ${periodName(state.day)}`}
+            {busy ? "Playing it out…" : stageFor(state.day).id === "daily" ? "Finish the day" : spanDays === 1 ? "Run the day" : `Run these ${spanDays} days`}
           </button>
           {error && <div className="notice">{error}</div>}
         </section>
@@ -479,7 +480,8 @@ export default function Home() {
         <EventModal event={state.currentEvent} cash={state.cash} onChoose={setEventOption} />
       )}
       {busy && !summary && <div className="backdrop brew-backdrop"><Brewing label={stageFor(state.day).id === "daily" ? "Running the day…" : `Running the ${periodName(state.day)}…`} /></div>}
-      {summary && <DaySummary {...summary} onClose={() => setSummary(null)} />}
+      {toast && <Toast text={toast} onDone={() => setToast(null)} />}
+      {summary && <DaySummary {...summary} onClose={() => { setSummary(null); const n = nudgeFor(after0(summary)); if (n && n !== lastToast.current) { lastToast.current = n; setToast(n); } }} />}
       {!summary && promoted && <PromotionModal {...promoted} onClose={() => setPromoted(null)} />}
       {detail && <MetricDetail metric={detail} state={state} onClose={() => setDetail(null)} />}
       {coach >= 0 && <Coach step={coach} onNext={() => setCoach(c => c + 1)} onDone={() => { localStorage.setItem("bs-coached", "1"); setCoach(-1); }} />}
@@ -559,7 +561,7 @@ function ExplainModal({ id, state, spanDays, onConfirm, onClose }: { id: Decisio
   const cost = DECISIONS.find(x => x[0] === id)?.[2] ?? "";
   if (!d) return null;
   return (
-    <Modal onClose={onClose}>
+    <Modal onClose={onClose} pick>
       <div className="eyebrow">Long term · {cost}</div>
       <h2>{title}</h2>
       <p className="detail-what">{d.what}</p>
@@ -579,7 +581,7 @@ function RestockModal({ state, spanDays, cash, onPick, onClose }: { state: GameS
   const count = restockChoices(spanDays);
   const options = RESTOCKS.slice(0, count);
   return (
-    <Modal onClose={onClose}>
+    <Modal onClose={onClose} pick>
       <div className="eyebrow">Restock</div>
       <h2>How much are you ordering?</h2>
       <p className="detail-what">
@@ -764,7 +766,7 @@ function MetricDetail({ metric, state, onClose }: { metric: MetricKey; state: Ga
 
 function EventModal({ event, cash, onChoose }: { event: NonNullable<GameState["currentEvent"]>; cash: number; onChoose: (id: string) => void }) {
   return (
-    <div className="backdrop">
+    <div className="backdrop pick">
       <div className="sheet event-sheet">
         <div className="eyebrow">Something happened</div>
         <h2>{event.title}</h2>
@@ -986,6 +988,20 @@ function Metric({ label, value, tone, series, onClick }: { label: string; value:
     <i className="tapdot" aria-hidden="true" />
   </button>;
 }
+const after0 = (s: { after: GameState }) => s.after;
+
+function Toast({ text, onDone }: { text: string; onDone: () => void }) {
+  const [leaving, setLeaving] = useState(false);
+  useEffect(() => {
+    const a = setTimeout(() => setLeaving(true), 2600);
+    const b = setTimeout(onDone, 3000);
+    return () => { clearTimeout(a); clearTimeout(b); };
+  }, [onDone]);
+  return <div className="toast-wrap" role="status" aria-live="polite">
+    <div className={`toast ${leaving ? "out" : ""}`}><i>💡</i>{text}</div>
+  </div>;
+}
+
 function Confetti() {
   const colours = ["var(--amber)", "var(--teal)", "var(--coral)", "var(--violet)", "var(--sky)"];
   return <div className="confetti" aria-hidden="true">
@@ -995,8 +1011,8 @@ function Confetti() {
   </div>;
 }
 
-function Modal({ children, onClose }: { children: ReactNode; onClose: () => void }) {
-  return <div className="backdrop" onMouseDown={e => e.target === e.currentTarget && onClose()}>
+function Modal({ children, onClose, pick }: { children: ReactNode; onClose: () => void; pick?: boolean }) {
+  return <div className={`backdrop ${pick ? "pick" : ""}`} onMouseDown={e => e.target === e.currentTarget && onClose()}>
     <div className="sheet">{children}</div>
   </div>;
 }
