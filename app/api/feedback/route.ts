@@ -1,17 +1,28 @@
 import { NextResponse } from "next/server";
-import { getSessionIdentity, getOwnedSession } from "@/lib/sessionAuth";
+import { cookies } from "next/headers";
 import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
+
+const SESSION_COOKIE = "bs_session";
+const PLAYER_COOKIE = "bs_player";
 
 export async function POST(request: Request) {
   try {
     const body = await request.json() as { ease?: string; gameplay?: string; realism?: string; decisions?: string; continuePlaying?: string; comment?: string; skipped?: boolean; sessionDays?: number };
-    const { sessionId, playerId } = await getSessionIdentity();
-    if (!sessionId || !playerId) return NextResponse.json({ error: "No active game session." }, { status: 401 });
-
-    const session = await getOwnedSession(sessionId, playerId);
-    if (!session) return NextResponse.json({ error: "Game session not found." }, { status: 404 });
-
+    const sessionId = (await cookies()).get(SESSION_COOKIE)?.value ?? null;
+    const playerId = (await cookies()).get(PLAYER_COOKIE)?.value ?? null;
+    if (!sessionId) return NextResponse.json({ error: "No active game session." }, { status: 401 });
     const supabase = getSupabaseAdmin();
+    // A second submission for the same session and day is a duplicate, not new data.
+    if (sessionId) {
+      const { data: existing } = await supabase
+        .from("beta_feedback")
+        .select("id")
+        .eq("session_id", sessionId)
+        .eq("day", Number(body.sessionDays ?? 0))
+        .limit(1);
+      if (existing && existing.length) return NextResponse.json({ ok: true, note: "already recorded" });
+    }
+
     const { error } = await supabase.from("beta_feedback").insert({
       session_id: sessionId,
       player_id: playerId,
