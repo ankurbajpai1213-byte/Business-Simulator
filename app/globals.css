@@ -471,3 +471,10 @@ p.lead{font-size:16px;color:var(--ink);opacity:.82}
 .mute-float{position:absolute;top:12px;right:14px;z-index:30;border:1px solid var(--line-2);background:var(--card);width:36px;height:36px;border-radius:50%;font-size:15px;line-height:1;display:grid;place-items:center;box-shadow:0 2px 8px rgba(31,29,26,.06)}
 .mute-float:active{transform:scale(.94)}
 .shell{position:relative}
+
+/* titles get the full width; cost drops to the second line */
+.choice-card.dec{grid-template-rows:auto auto}
+.choice-card.dec .dec-row .dec-cost{display:none}
+.choice-card.dec .dec-foot{display:flex;align-items:baseline;gap:6px;min-width:0;overflow:hidden}
+.choice-card.dec .dec-foot small{flex:1;min-width:0}
+.choice-card.dec .dec-foot .dec-cost{display:block;flex-shrink:0;font-size:10px;color:var(--muted);font-weight:600}
