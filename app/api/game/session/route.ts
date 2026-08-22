@@ -37,9 +37,12 @@ export async function GET() {
 
     if (existingId) await supabase.from("game_sessions").update({ status: "superseded" }).eq("id", existingId).eq("status", "active");
 
-    const { data, error } = await supabase.from("game_sessions").insert({ city: "mumbai", business_type: "cafe", user_id: playerId, player_id: playerId, state: INITIAL_STATE, status: "active" }).select("id, state, user_id").single();
-    if (error || !data) throw error ?? new Error("Unable to create game session.");
-    return responseWithSession({ state: data.state as GameState, sessionId: data.id }, data.id);
+    // No row is written until the player actually opens a cafe. Merely visiting
+    // the page should not leave a session behind.
+    const response = NextResponse.json({ state: INITIAL_STATE, sessionId: null, playerId });
+    response.cookies.set(SESSION_COOKIE, "", { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "lax", path: "/", maxAge: 0 });
+    response.cookies.set(RELEASE_COOKIE, CURRENT_RELEASE, { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "lax", path: "/", maxAge: COOKIE_MAX_AGE });
+    return response;
   } catch (error) {
     console.error("[game/session] Game session service failed:", error);
     return NextResponse.json({ error: "Game session service is not configured." }, { status: 503 });
