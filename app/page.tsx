@@ -42,7 +42,8 @@ function outlook(id: Decision, state: GameState, spanDays: number): { line: stri
     const wasted = points - gained;
     const cover = Math.max(1, Math.round((state.inventory + gained) / perDay));
     const line = `+${gained}% · ${cover} days`;
-    if (wasted > 0) return { line, warn: `${wasted}% wasted` };
+    // A few points of overflow is rounding, not a mistake worth warning about.
+    if (wasted >= 20) return { line, warn: `${wasted}% wasted` };
     if (spanDays > 1 && cover > spanDays * 2) return { line, warn: "More than needed" };
     return { line };
   };
@@ -443,7 +444,10 @@ export default function Home() {
                     <span className="dec-cost">{id === "inventory" ? (RESTOCKS.find(r => picked.includes(r[0])) ? formatINR(RESTOCKS.find(r => picked.includes(r[0]))![3]) : cost) : cost}</span>
                     {on && <span className="tick">✓</span>}
                   </div>
-                  <small className={(ok || on) && look.warn ? "warned" : ""}>{(ok || on) && look.warn ? look.warn : why}</small>
+                  <div className="dec-foot">
+                    <small className={(ok || on) && look.warn ? "warned" : ""}>{(ok || on) && look.warn ? look.warn : why}</small>
+                    <span className="dec-cost">{id === "inventory" ? (RESTOCKS.find(r => picked.includes(r[0])) ? formatINR(RESTOCKS.find(r => picked.includes(r[0]))![3]) : cost) : cost}</span>
+                  </div>
                 </button>
               );
             })}
