@@ -478,3 +478,29 @@ p.lead{font-size:16px;color:var(--ink);opacity:.82}
 .choice-card.dec .dec-foot{display:flex;align-items:baseline;gap:6px;min-width:0;overflow:hidden}
 .choice-card.dec .dec-foot small{flex:1;min-width:0}
 .choice-card.dec .dec-foot .dec-cost{display:block;flex-shrink:0;font-size:10px;color:var(--muted);font-weight:600}
+
+/* ---------- summary: one glance ---------- */
+.sum{text-align:center;position:relative}
+.sum-face{font-size:40px;line-height:1;margin-bottom:6px;animation:popin .35s cubic-bezier(.34,1.56,.64,1)}
+.sum-money{font-size:40px;font-weight:800;letter-spacing:-.03em;line-height:1.05;margin:2px 0 6px}
+.sum-sub{font-size:13.5px;color:var(--muted);line-height:1.45;margin-bottom:14px}
+.sum-alert{background:var(--coral-soft);border:1px solid #f2cdc1;color:#a4432c;border-radius:12px;padding:10px 12px;font-size:13px;line-height:1.45;margin-bottom:12px;text-align:left}
+.sum-badges{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin-bottom:12px}
+.sum-badges span{background:var(--violet-soft);color:var(--violet);border-radius:999px;padding:5px 11px;font-size:11.5px;font-weight:700}
+.sum-three{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-bottom:4px}
+.sum-three>div{background:var(--tint);border-radius:12px;padding:10px 6px}
+.sum-three span{display:block;font-size:10.5px;color:var(--muted);font-weight:600}
+.sum-three strong{display:block;font-size:15px;font-weight:700;margin-top:3px}
+.sum-detail{display:grid;gap:1px;background:var(--line);border:1px solid var(--line);border-radius:12px;overflow:hidden;margin-top:10px;text-align:left}
+.sum-detail>div{display:flex;justify-content:space-between;gap:10px;padding:9px 12px;background:var(--card)}
+.sum-detail span{font-size:12.5px;color:var(--muted)}
+.sum-detail strong{font-size:12.5px;font-weight:650}
+
+/* ---------- nudge ---------- */
+.nudge{display:flex;align-items:center;gap:8px;background:var(--amber-soft);border:1px solid #f0dfba;border-radius:12px;padding:8px 11px;flex-shrink:0;animation:popin .3s cubic-bezier(.34,1.56,.64,1)}
+.nudge i{font-style:normal;font-size:14px;flex-shrink:0}
+.nudge span{font-size:12px;line-height:1.35;color:#7a5f2e;font-weight:600}
+.explain-rows{display:grid;gap:8px;margin:14px 0 4px}
+.explain-rows>div{background:var(--tint);border-radius:12px;padding:11px 13px}
+.explain-rows span{display:block;font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-bottom:4px}
+.explain-rows strong{display:block;font-size:13.5px;font-weight:500;line-height:1.45}
