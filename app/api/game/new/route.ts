@@ -4,17 +4,18 @@ import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
 import { INITIAL_STATE } from "@/lib/simulation";
 
 const SESSION_COOKIE = "bs_session";
-const PLAYER_COOKIE = "bs_player";
-const COOKIE_MAX_AGE = 60 * 60 * 24 * 30;
 
 export async function POST() {
   try {
+    const cookieStore = await cookies();
+    const existingId = cookieStore.get(SESSION_COOKIE)?.value;
     const supabase = getSupabaseAdmin();
-    const playerId = (await cookies()).get(PLAYER_COOKIE)?.value ?? null;
-    const { data, error } = await supabase.from("game_sessions").insert({ city: "mumbai", business_type: "cafe", user_id: playerId, player_id: playerId, state: INITIAL_STATE, status: "active" }).select("id, state").single();
-    if (error || !data) throw error ?? new Error("Unable to create new business.");
-    const response = NextResponse.json({ state: data.state, sessionId: data.id });
-    response.cookies.set(SESSION_COOKIE, data.id, { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "lax", path: "/", maxAge: COOKIE_MAX_AGE });
+
+    // Close the old run, but do not open a new row until the player sets up a cafe.
+    if (existingId) await supabase.from("game_sessions").update({ status: "abandoned" }).eq("id", existingId).eq("status", "active");
+
+    const response = NextResponse.json({ state: INITIAL_STATE, sessionId: null });
+    response.cookies.set(SESSION_COOKIE, "", { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "lax", path: "/", maxAge: 0 });
     return response;
   } catch (error) {
     console.error("[game/new] failed", error);
