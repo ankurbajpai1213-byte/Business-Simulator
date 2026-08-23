@@ -87,6 +87,9 @@ export function applyDecision(state: GameState, decision: Decision): GameState {
     case "no-action": break; }
   if (decision !== "raise-price") next.consecutivePriceRaises = 0; return next;
 }
+import { managerEffects, supplierEffects, type Manager, type Supplier } from "./people";
+import { investmentEffects } from "./reinvestment";
+
 export type Weather = { id: "clear" | "hot" | "rain" | "festival" | "cold"; label: string; demand: number };
 export function weatherFor(seed: number, day: number): Weather {
   let x = (seed ^ Math.imul(day + 0x2545f491, 0x9e3779b1)) >>> 0;
@@ -143,15 +146,20 @@ function dayMessage(state: GameState, decision: Decision, previous: GameState): 
 export function advanceDay(state: GameState, decision: Decision = "marketing", turnSpend = 0, rainToday = false, resolvedEventId: GameEventId | null = null, resolvedEventOption: string | null = null): GameState {
   const location = LOCATION_OPTIONS.find(x => x.id === state.location)!; const items = state.menu.map(id => MENU_ITEMS.find(x => x.id === id)).filter(Boolean) as MenuItem[]; const menu = menuStats(items); const priceFactor = priceDemandFactor(state); const qualityFactor = 0.68 + state.quality / 230; const reputationFactor = 0.55 + state.reputation / 200 + (state.loyalty ? 0.06 : 0); const marketingFactor = 1 + state.marketing / 360;
   // Word of mouth: spending on reach only compounds when the product is worth talking about.
-  const wordOfMouth = state.marketing >= 45 && state.quality >= 72 ? 1.07 : 1; const menuFactor = Math.min(1.80, 0.88 + menu.demand / 85); const service = serviceFactor(state) * (state.extendedHours ? 1.10 : 1) * (state.manager ? 1.04 : 1); const marketNoise = seededNoise(state.seed, state.day); const weather = rainToday ? { id: "rain" as const, label: "Rain", demand: 1 } : weatherFor(state.seed, state.day);
+  const wordOfMouth = state.marketing >= 45 && state.quality >= 72 ? 1.07 : 1; const menuFactor = Math.min(1.80, 0.88 + menu.demand / 85); const service = serviceFactor(state) * (state.extendedHours ? 1.10 : 1) * managerEffects((state.managerProfile ?? null) as Manager | null).throughput;
+  const builtCapacity = state.serviceCapacity + investmentEffects(state.investments ?? []).capacityBonus; const marketNoise = seededNoise(state.seed, state.day); const weather = rainToday ? { id: "rain" as const, label: "Rain", demand: 1 } : weatherFor(state.seed, state.day);
   const rainPenalty = rainToday ? 0.88 : 1; const stockPenalty = state.inventory < 15 ? 0.68 : state.inventory < 30 ? 0.82 : state.inventory < 45 ? 0.92 : 1;
-  const demand = location.demand * priceFactor * qualityFactor * reputationFactor * marketingFactor * menuFactor * service * marketNoise * rainPenalty * stockPenalty * wordOfMouth * weather.demand; const demandCustomers = Math.max(0, Math.min(state.serviceCapacity, Math.round(105 * demand))); const customers = Math.min(demandCustomers, Math.max(0, Math.floor(state.inventory * 9))); const averageTicket = Math.round((280 + 35 * Math.sqrt(Math.max(0, menu.ticket) / 10)) * (state.priceIndex / 100)); const revenue = customers * averageTicket;
-  const rent = Math.round(location.rentMonthly / 30); const payroll = 7000 + Math.round(state.staff * 60) + (state.manager ? 2600 : 0) + (state.extendedHours ? 1900 : 0) + (state.loyalty ? 700 : 0); const cogs = Math.round(revenue * (0.27 + (state.supplierCostMultiplier - 1) * 0.45 + (state.supplyContract ? 0.035 : 0))); const marketingSpend = Math.round(Math.max(0, state.marketing - 25) * 85); const menuOperatingCost = Math.round(menu.weeklyCost / 7); const capacityStress = customers >= state.serviceCapacity * 0.9 ? 3500 : customers >= state.serviceCapacity * 0.78 ? 1200 : 0; // A wider menu means more ingredients moving per customer.
+  const demand = location.demand * priceFactor * qualityFactor * reputationFactor * marketingFactor * menuFactor * service * marketNoise * rainPenalty * stockPenalty * wordOfMouth * weather.demand; const demandCustomers = Math.max(0, Math.min(state.serviceCapacity, Math.round(105 * demand))); const customers = Math.min(demandCustomers, builtCapacity, Math.max(0, Math.floor(state.inventory * 9))); const averageTicket = Math.round((280 + 35 * Math.sqrt(Math.max(0, menu.ticket) / 10)) * (state.priceIndex / 100)); const revenue = customers * averageTicket;
+  // Who you hired, who you buy from, and what you have built all change the sums.
+  const mgr = managerEffects((state.managerProfile ?? null) as Manager | null);
+  const sup = supplierEffects((state.supplierProfile ?? null) as Supplier | null);
+  const inv = investmentEffects(state.investments ?? []);
+  const rent = Math.round((location.rentMonthly * inv.rentMultiplier) / 30); const payroll = 7000 + Math.round(state.staff * 60) + (state.manager ? (state.managerProfile?.salaryDaily ?? 2600) : 0) + (state.extendedHours ? 1900 : 0) + (state.loyalty ? 700 : 0) + inv.payrollDaily; const cogs = Math.round(revenue * (0.27 * sup.cogsFactor + (state.supplierCostMultiplier - 1) * 0.45 + (state.supplyContract ? 0.035 : 0))); const marketingSpend = Math.round(Math.max(0, state.marketing - 25) * 85); const menuOperatingCost = Math.round(menu.weeklyCost / 7); const capacityStress = customers >= state.serviceCapacity * 0.9 ? 3500 : customers >= state.serviceCapacity * 0.78 ? 1200 : 0; // A wider menu means more ingredients moving per customer.
   const menuBreadthFactor = 1 + Math.max(0, items.length - 5) * 0.04;
-  const stockUsed = customers > 0 ? Math.max(2, Math.round((customers / 18) * menuBreadthFactor)) : 0; const wastage = state.inventory > 82 ? Math.round((state.inventory - 82) * 180) : 0; const stockoutCost = state.inventory - stockUsed < 0 ? Math.round(Math.abs(state.inventory - stockUsed) * 250) : 0; const serviceQualityPenalty = customers >= state.serviceCapacity * 0.98 ? 2 : customers >= state.serviceCapacity * 0.9 ? 1 : 0; const operatingCost = rent + payroll + cogs + marketingSpend + menuOperatingCost + capacityStress + wastage + stockoutCost; const profit = revenue - operatingCost - turnSpend;
+  const stockUsed = customers > 0 ? Math.max(2, Math.round((customers / 18) * menuBreadthFactor)) : 0; const wastage = state.inventory > 82 ? Math.round((state.inventory - 82) * 180 * mgr.wastageFactor) : 0; const stockoutCost = state.inventory - stockUsed < 0 ? Math.round(Math.abs(state.inventory - stockUsed) * 250) : 0; const serviceQualityPenalty = (customers >= state.serviceCapacity * 0.98 ? 2 : customers >= state.serviceCapacity * 0.9 ? 1 : 0) * (1 - mgr.serviceRelief); const operatingCost = rent + payroll + cogs + marketingSpend + menuOperatingCost + capacityStress + wastage + stockoutCost; const profit = revenue - operatingCost - turnSpend;
   const closedToday = customers === 0 && state.serviceCapacity > 0;
   // Reputation cannot float far above the quality actually being delivered.
-  const reputationCeiling = Math.max(10, Math.min(96, state.quality + 12));
+  const reputationCeiling = Math.max(10, Math.min(96, state.quality + 12 + inv.reputationCeilingBonus));
   const overCeiling = Math.max(0, state.reputation - reputationCeiling);
   let reputationChange = (profit > 0 ? 0.45 : -0.5)
     + (state.quality >= 75 ? 0.3 : 0)
@@ -164,17 +172,18 @@ export function advanceDay(state: GameState, decision: Decision = "marketing", t
   // A cafe that served nobody was effectively shut. Word travels fast.
   if (closedToday) reputationChange = Math.min(reputationChange, 0) - 3.2;
   // Drift back down toward what the quality can support.
+  reputationChange += mgr.reputationDaily + sup.reputationDaily;
   if (overCeiling > 0) reputationChange = Math.min(reputationChange, 0) - Math.min(3, overCeiling * 0.6);
   // Gains get harder the higher you already are.
   if (reputationChange > 0 && state.reputation > 70) reputationChange *= 0.35;
   if (reputationChange > 0 && state.reputation > 85) reputationChange *= 0.4;
   // Reputation can never sit above what the quality supports.
   const cappedRep = Math.min(state.reputation + reputationChange, reputationCeiling + 2);
-  reputationChange = cappedRep - state.reputation; const qualityDrift = state.quality > 40 ? -0.12 : 0;
+  reputationChange = cappedRep - state.reputation; const qualityDrift = (state.quality > 40 ? -0.12 : 0) + mgr.qualityDrift + inv.qualityDrift + sup.qualityDaily;
   const previousProfit = state.profit;
   // A supply contract means deliveries arrive without the owner ordering them,
   // but it only covers routine demand and never fully fills the store.
-  const restocked = state.supplyContract ? Math.round(stockUsed * 0.92) : 0;
+  const restocked = state.supplyContract ? Math.round(stockUsed * (sup.autoRestock || 0.92)) : 0;
   const nextInventory = Math.max(0, Math.min(state.supplyContract ? 78 : 100, state.inventory - stockUsed + restocked));
   const stockoutToday = state.inventory - stockUsed < 0 || customers === 0;
   const monthBoundary = state.day % 30 === 0;
@@ -189,7 +198,7 @@ export function advanceDay(state: GameState, decision: Decision = "marketing", t
     profitableMonths: monthBoundary && state.monthProfit + profit > 0 ? state.profitableMonths + 1 : state.profitableMonths,
     customersBeforeRaise: decision === "raise-price" ? state.customers : state.customersBeforeRaise,
     raiseTestDay: decision === "raise-price" ? state.day : state.raiseTestDay, cash: Math.round(state.cash + profit + turnSpend), revenue, profit, customers, totalCustomers: state.totalCustomers + customers, cumulativeRevenue: state.cumulativeRevenue + revenue, cumulativeProfit: state.cumulativeProfit + profit, reputation: Math.max(0, Math.min(100, Math.round((state.reputation + reputationChange) * 10) / 10)),
-    quality: Math.max(0, Math.min(100, Math.round((state.quality + qualityDrift) * 10) / 10)), inventory: nextInventory, wastageToday: wastage, marketing: Math.max(25, state.marketing - 3), profitableDays: state.profitableDays + (profit > 0 ? 1 : 0), lossDays: state.lossDays + (profit < 0 ? 1 : 0), profitStreak: profit > 0 ? state.profitStreak + 1 : 0, lossStreak: profit < 0 ? state.lossStreak + 1 : 0, priceChangesLast7: state.day % 7 === 0 ? 0 : state.priceChangesLast7, lastDayMessage: "", weatherToday: weather.id };
+    quality: Math.max(0, Math.min(100, Math.round((state.quality + qualityDrift) * 10) / 10)), inventory: nextInventory, wastageToday: wastage, marketing: Math.max(25, state.marketing - 3 * inv.marketingDecayFactor), profitableDays: state.profitableDays + (profit > 0 ? 1 : 0), lossDays: state.lossDays + (profit < 0 ? 1 : 0), profitStreak: profit > 0 ? state.profitStreak + 1 : 0, lossStreak: profit < 0 ? state.lossStreak + 1 : 0, priceChangesLast7: state.day % 7 === 0 ? 0 : state.priceChangesLast7, lastDayMessage: "", weatherToday: weather.id };
   next.lastDayMessage = dayMessage(next, decision, state); next.milestones = addMilestones(next, previousProfit); next.dayHistory = [...state.dayHistory, { day: state.day, decision, eventId: resolvedEventId, eventOption: resolvedEventOption, cashBefore: state.cash + turnSpend, cashAfter: next.cash, revenue, profit, customers, reputation: next.reputation, priceIndex: next.priceIndex, inventory: next.inventory, wastage }]; return next;
 }
 function makeEvent(id: GameEventId, title: string, narrative: string, severity: 1 | 2 | 3, options: GameEvent["options"]): GameEvent { return { id, title, narrative, severity, options }; }
