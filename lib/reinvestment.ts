@@ -60,7 +60,7 @@ export const INVESTMENTS: Investment[] = [
   },
 ];
 
-export function availableInvestments(state: GameState & { investments?: InvestmentId[] }): Investment[] {
+export function availableInvestments(state: GameState & { investments?: string[] }): Investment[] {
   const owned = new Set(state.investments ?? []);
   return INVESTMENTS.filter(i => state.day >= i.unlockDay && !owned.has(i.id));
 }
@@ -76,7 +76,7 @@ export type InvestmentEffects = {
   eventShield: number;
 };
 
-export function investmentEffects(owned: InvestmentId[] = []): InvestmentEffects {
+export function investmentEffects(owned: string[] = []): InvestmentEffects {
   const has = (id: InvestmentId) => owned.includes(id);
   return {
     capacityBonus: (has("second-counter") ? 55 : 0) + (has("terrace") ? 90 : 0),
