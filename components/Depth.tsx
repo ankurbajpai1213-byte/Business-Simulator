@@ -7,6 +7,7 @@ import {
   managerSalary, supplierSummary, type ManagerTrait, type SupplierTrait,
 } from "@/lib/people";
 import { menuPerformance, discontinueCost } from "@/lib/menuPerformance";
+import { ROLES, crewCost, crewCapacity, OWNER_ROLES, type Crew, type RoleId, type OwnerRole } from "@/lib/crew";
 import { readAcumen, DIMENSION_LABEL, type Dimension } from "@/lib/acumen";
 import { INVESTMENTS, availableInvestments, type InvestmentId } from "@/lib/reinvestment";
 
@@ -146,7 +147,7 @@ export function MenuReport({ state, onDrop, onClose }: { state: GameState; onDro
 
 /* ---------- how the owner is doing ---------- */
 
-export function AcumenPanel({ state, onClose }: { state: GameState; onClose: () => void }) {
+export function AcumenPanel({ state, owner, journey, onClose }: { state: GameState; owner?: { rank: string; ownerReputation: number; runsCompleted: number }; journey?: { requirements: Array<{ label: string; met: boolean }>; percent: number; next: string | null } | null; onClose: () => void }) {
   const read = readAcumen(state as Parameters<typeof readAcumen>[0]);
   const dims: Dimension[] = ["finance", "operations", "people", "market", "strategy"];
   return (
@@ -167,10 +168,19 @@ export function AcumenPanel({ state, onClose }: { state: GameState; onClose: () 
           ))}
         </div>
         <div className="explain-rows">
-          <div><span>Where you are</span><strong>{read.stage === "founder" ? "Founder" : "Operator"}</strong></div>
-          <div><span>Next</span><strong>{read.nextStage}</strong></div>
-          <div><span>What it takes</span><strong>{read.nextRequirement}</strong></div>
+          <div><span>Standing as an owner</span><strong>{Math.round(owner?.ownerReputation ?? 30)} / 100{owner?.runsCompleted ? ` · ${owner.runsCompleted} run${owner.runsCompleted === 1 ? "" : "s"} finished` : ""}</strong></div>
+          <div><span>What it takes next</span><strong>{read.nextRequirement}</strong></div>
         </div>
+        {journey && journey.requirements.length > 0 && (
+          <>
+            <div className="ledger-head">Toward {journey.next ?? "the next stage"} · {journey.percent}%</div>
+            <div className="req-list">
+              {journey.requirements.map(r => (
+                <div key={r.label} className={r.met ? "met" : ""}><i>{r.met ? "✓" : "○"}</i><span>{r.label}</span></div>
+              ))}
+            </div>
+          </>
+        )}
         {read.coaching && <p className="daymsg">{read.coaching}</p>}
         <button className="primary" onClick={onClose}>Back to the cafe</button>
       </div>
@@ -210,6 +220,77 @@ export function InvestmentPicker({ state, onConfirm, onClose }: { state: GameSta
           </div>
         )}
         <button className="text-button" onClick={onClose}>Not now</button>
+      </div>
+    </div>
+  );
+}
+
+
+/* ---------- who is on the floor ---------- */
+
+export function CrewPanel({ state, onChange, onClose }: {
+  state: GameState & { crew?: Crew; ownerRole?: OwnerRole; crewWage?: number };
+  onChange?: (crew: Crew) => void;
+  onClose: () => void;
+}) {
+  const [crew, setCrew] = useState<Crew>(state.crew ?? {});
+  const [dirty, setDirty] = useState(false);
+  const ownerRole = state.ownerRole ?? "balanced";
+  const before = crewCost(state.crew ?? {});
+  const after = crewCost(crew);
+  const capacity = crewCapacity(crew, ownerRole, state.format);
+  const used = state.serviceCapacity > 0 ? Math.round((state.customers / state.serviceCapacity) * 100) : 0;
+  const hiring = Math.max(0, after.hiringCost - before.hiringCost);
+  const owner = OWNER_ROLES.find(o => o.id === ownerRole);
+
+  const change = (id: RoleId, delta: number) => {
+    const role = ROLES.find(r => r.id === id)!;
+    setCrew(c => ({ ...c, [id]: Math.max(0, Math.min(role.max, (c[id] ?? 0) + delta)) }));
+    setDirty(true);
+  };
+
+  return (
+    <div className="backdrop" onMouseDown={e => e.target === e.currentTarget && onClose()}>
+      <div className="sheet">
+        <div className="eyebrow">Your crew</div>
+        <h2>Who is on the floor</h2>
+        <p className="detail-what">
+          You served {state.customers} people yesterday and can handle {state.serviceCapacity}
+          {used < 60 ? " — you are paying for hands you are not using." : used > 90 ? " — you are close to turning people away." : "."}
+          {owner ? ` You are ${owner.name.toLowerCase()}.` : ""}
+        </p>
+        <div className="stack">
+          {ROLES.filter(r => r.id !== "manager").map(r => {
+            const n = crew[r.id] ?? 0;
+            const blocked = r.requiresKitchen && state.format === "takeaway";
+            return (
+              <div className={`crew-row ${blocked ? "locked" : ""}`} key={r.id}>
+                <div className="crew-text">
+                  <strong>{r.name}</strong>
+                  <small>{blocked ? "A kiosk has no kitchen." : r.blurb}</small>
+                  <em>{formatINR(r.dailyWage)}/day each</em>
+                </div>
+                <div className="crew-count">
+                  <button disabled={n === 0 || blocked} onClick={() => change(r.id, -1)}>−</button>
+                  <b>{n}</b>
+                  <button disabled={n >= r.max || blocked} onClick={() => change(r.id, 1)}>+</button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+        <div className="plan-rows">
+          <div><span>Wages after this</span><strong>{formatINR(after.dailyWage)} a day</strong></div>
+          <div><span>Would serve</span><strong>{capacity} people a day</strong></div>
+          {hiring > 0 && <div><span>Hiring cost</span><strong>{formatINR(hiring)} once</strong></div>}
+          {after.headcount < before.headcount && <div><span>Letting people go</span><strong>No refund, and it is noticed</strong></div>}
+        </div>
+        {onChange && (
+          <button className="primary" disabled={!dirty} onClick={() => onChange(crew)}>
+            {dirty ? "Make these changes" : "Nothing changed"}
+          </button>
+        )}
+        <button className="text-button" onClick={onClose}>Close</button>
       </div>
     </div>
   );
