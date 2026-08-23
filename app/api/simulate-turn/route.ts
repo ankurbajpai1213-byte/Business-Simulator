@@ -4,14 +4,16 @@ import { applyDecision, advanceDay, applyEvent, generateEvent, isDecisionAvailab
 import { applyDelayedEffect, createDelayedEffects, shouldShowMilestone, type DelayedEffect } from "@/lib/simulation-engine-v2";
 import { daysThisTurn, slotsForTurn, RUN_LENGTH_DAYS, type Interruption, type SpanReport } from "@/lib/cadence";
 import { getSessionIdentity, getOwnedSession } from "@/lib/sessionAuth";
+import { managerSalary, type ManagerTrait } from "@/lib/people";
+import { INVESTMENTS } from "@/lib/reinvestment";
 
 const SESSION_COOKIE = "bs_session";
-const decisions = new Set<Decision>(["raise-price", "lower-price", "marketing", "hire", "quality", "inventory", "inventory-2", "inventory-3", "no-action", "supply-contract", "hire-manager", "extend-hours", "loyalty-programme"]);
+const decisions = new Set<Decision>(["raise-price", "lower-price", "marketing", "hire", "quality", "inventory", "inventory-2", "inventory-3", "no-action", "supply-contract", "hire-manager", "extend-hours", "loyalty-programme", "reinvest"]);
 type V2State = GameState & { pendingDelayedEffects?: DelayedEffect[] };
 
 export async function POST(request: Request) {
   try {
-    const body = (await request.json()) as { decision?: Decision; decisions?: Decision[]; eventOption?: string };
+    const body = (await request.json()) as { decision?: Decision; decisions?: Decision[]; eventOption?: string; traits?: { manager?: string[]; supplier?: string[]; investment?: string } };
     // A turn may only be played on a session belonging to the current player.
     const { sessionId, playerId } = await getSessionIdentity();
     if (!sessionId || !playerId) return NextResponse.json({ error: "No active game session." }, { status: 401 });
@@ -71,6 +73,22 @@ export async function POST(request: Request) {
     for (const action of requested) {
       if (!isDecisionAvailable(currentState, action)) return NextResponse.json({ error: "One of those actions is not available yet, is already at its maximum, or there is not enough cash for it." }, { status: 409 });
       currentState = applyDecision(currentState, action) as V2State;
+    }
+    // Record what the player actually chose in a manager, a supplier or a project.
+    if (requested.includes("hire-manager") && body.traits?.manager?.length) {
+      const salary = managerSalary(body.traits.manager as ManagerTrait[]);
+      currentState = { ...currentState, managerProfile: { traits: body.traits.manager, hiredOnDay: currentState.day, salaryDaily: salary } } as V2State;
+    }
+    if (requested.includes("supply-contract") && body.traits?.supplier?.length) {
+      currentState = { ...currentState, supplierProfile: { traits: body.traits.supplier, signedOnDay: currentState.day } } as V2State;
+    }
+    if (requested.includes("reinvest")) {
+      const chosen = INVESTMENTS.find(i => i.id === body.traits?.investment);
+      if (!chosen) return NextResponse.json({ error: "Choose what you want to build." }, { status: 400 });
+      if (currentState.day < chosen.unlockDay) return NextResponse.json({ error: "That is not available yet." }, { status: 409 });
+      if (currentState.cash < chosen.cost) return NextResponse.json({ error: "Not enough cash for that." }, { status: 409 });
+      currentState = { ...currentState, cash: currentState.cash - chosen.cost,
+        investments: [...((currentState as { investments?: string[] }).investments ?? []), chosen.id] } as V2State;
     }
     const primary: Decision = requested.find(d => d !== "no-action") ?? requested[0];
     const turnSpend = Math.max(0, turnCashBefore - currentState.cash);
