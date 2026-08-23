@@ -56,19 +56,31 @@ export function menuPerformance(state: GameState): MenuLine[] {
     return { id, name: item.name, share, weeklyCost, weeklyRevenue, weeklyProfit };
   });
 
-  const bestProfit = Math.max(...lines.map(l => l.weeklyProfit), 1);
+  // Verdicts have to be relative to the rest of the menu, not to a fixed bar —
+  // otherwise a healthy cafe reports that every single line is a star, which
+  // tells the player nothing at all.
+  const sorted = [...lines].sort((a, b) => b.weeklyProfit - a.weeklyProfit);
+  const rank = new Map(sorted.map((l, i) => [l.id, i]));
+  const topQuarter = Math.max(1, Math.ceil(sorted.length * 0.25));
+  const bottomQuarter = Math.max(1, Math.floor(sorted.length * 0.25));
+  const median = sorted[Math.floor(sorted.length / 2)]?.weeklyProfit ?? 0;
+
   return lines.map(l => {
+    const place = rank.get(l.id) ?? 0;
     let verdict: MenuLine["verdict"];
     let note: string;
     if (l.weeklyProfit < 0) {
       verdict = "drag";
       note = `Costs ${Math.abs(l.weeklyProfit).toLocaleString("en-IN")} more each week than it brings in.`;
-    } else if (l.weeklyProfit > bestProfit * 0.6 && l.share > 0.06) {
-      verdict = "star";
-      note = "Carrying real weight. Protect this one.";
-    } else if (l.share < 0.035) {
+    } else if (l.share < 0.04) {
       verdict = "quiet";
-      note = "Barely ordered. It is not losing money, but it is not doing much either.";
+      note = "Barely ordered. Not losing money, but not earning its shelf either.";
+    } else if (place < topQuarter) {
+      verdict = "star";
+      note = "One of the lines carrying this place. Protect it.";
+    } else if (place >= sorted.length - bottomQuarter && l.weeklyProfit < median * 0.6) {
+      verdict = "quiet";
+      note = "Near the bottom of the menu. Worth asking whether it earns its place.";
     } else {
       verdict = "steady";
       note = "Pulling its weight without drawing attention.";
