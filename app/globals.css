@@ -564,3 +564,30 @@ p.lead{font-size:16px;color:var(--ink);opacity:.82}
 .toast.out{animation:toastout .35s ease forwards}
 @keyframes toastout{to{opacity:0;transform:scale(.97)}}
 @media(prefers-reduced-motion:reduce){.toast,.toast.out{animation:none}}
+
+/* ---------- menu report ---------- */
+.menu-report{display:grid;gap:8px;margin:14px 0 4px;max-height:44dvh;overflow-y:auto}
+.mr-row{background:var(--tint);border-radius:12px;padding:11px 13px;border-left:3px solid var(--line-2)}
+.mr-row.star{border-left-color:var(--teal)}
+.mr-row.drag{border-left-color:var(--coral)}
+.mr-row.quiet{border-left-color:var(--line-2);opacity:.85}
+.mr-top{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.mr-top strong{font-size:14px}
+.mr-tag{font-size:9.5px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;padding:3px 7px;border-radius:999px;background:var(--card);color:var(--muted)}
+.mr-tag.star{background:var(--teal-soft);color:var(--teal)}
+.mr-tag.drag{background:var(--coral-soft);color:var(--coral)}
+.mr-nums{display:flex;justify-content:space-between;gap:10px;margin-top:5px;font-size:12px;font-weight:650}
+.mr-nums span:first-child{color:var(--muted);font-weight:500}
+.mr-row small{display:block;margin-top:4px;font-size:11.5px;color:var(--muted);line-height:1.4}
+.mr-drop{text-align:left;width:auto;margin-top:6px;padding:0;font-size:11.5px;color:var(--coral)}
+
+/* ---------- acumen ---------- */
+.acu{display:grid;gap:9px;margin:14px 0 4px}
+.acu-row{display:grid;grid-template-columns:1fr 90px 28px;align-items:center;gap:9px}
+.acu-row span{font-size:12.5px;color:var(--muted)}
+.acu-row b{font-size:12.5px;text-align:right;font-weight:700}
+.acu-bar{height:6px;border-radius:3px;background:#e5e0d7;overflow:hidden}
+.acu-bar i{display:block;height:100%;border-radius:3px;background:linear-gradient(90deg,var(--amber),var(--teal));transition:width .5s ease}
+
+/* ---------- investments ---------- */
+.inv-gain{display:block;font-style:normal;font-size:11.5px;color:var(--teal);margin-top:5px;font-weight:600}
