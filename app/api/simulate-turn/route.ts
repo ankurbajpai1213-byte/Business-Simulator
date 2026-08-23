@@ -6,6 +6,7 @@ import { daysThisTurn, slotsForTurn, RUN_LENGTH_DAYS, type Interruption, type Sp
 import { getSessionIdentity, getOwnedSession } from "@/lib/sessionAuth";
 import { managerSalary, type ManagerTrait } from "@/lib/people";
 import { INVESTMENTS } from "@/lib/reinvestment";
+import { crewCost, crewCapacity, crewStaffLevel, type Crew, type OwnerRole } from "@/lib/crew";
 
 const SESSION_COOKIE = "bs_session";
 const decisions = new Set<Decision>(["raise-price", "lower-price", "marketing", "hire", "quality", "inventory", "inventory-2", "inventory-3", "no-action", "supply-contract", "hire-manager", "extend-hours", "loyalty-programme", "reinvest"]);
@@ -13,7 +14,7 @@ type V2State = GameState & { pendingDelayedEffects?: DelayedEffect[] };
 
 export async function POST(request: Request) {
   try {
-    const body = (await request.json()) as { decision?: Decision; decisions?: Decision[]; eventOption?: string; traits?: { manager?: string[]; supplier?: string[]; investment?: string } };
+    const body = (await request.json()) as { decision?: Decision; decisions?: Decision[]; eventOption?: string; traits?: { manager?: string[]; supplier?: string[]; investment?: string; crew?: Record<string, number> } };
     // A turn may only be played on a session belonging to the current player.
     const { sessionId, playerId } = await getSessionIdentity();
     if (!sessionId || !playerId) return NextResponse.json({ error: "No active game session." }, { status: 401 });
@@ -89,6 +90,22 @@ export async function POST(request: Request) {
       if (currentState.cash < chosen.cost) return NextResponse.json({ error: "Not enough cash for that." }, { status: 409 });
       currentState = { ...currentState, cash: currentState.cash - chosen.cost,
         investments: [...((currentState as { investments?: string[] }).investments ?? []), chosen.id] } as V2State;
+    }
+    // Hiring or letting people go changes the wage bill and what you can serve.
+    if (requested.includes("hire") && body.traits?.crew) {
+      const crew = body.traits.crew;
+      const before = crewCost((currentState as { crew?: Crew }).crew ?? {});
+      const after = crewCost(crew);
+      const hiring = Math.max(0, after.hiringCost - before.hiringCost);
+      if (currentState.cash < hiring) return NextResponse.json({ error: "Not enough cash to take them on." }, { status: 409 });
+      const role = ((currentState as { ownerRole?: OwnerRole }).ownerRole ?? "balanced");
+      currentState = { ...currentState, cash: currentState.cash - hiring, crew,
+        crewWage: after.dailyWage,
+        serviceCapacity: crewCapacity(crew, role, currentState.format),
+        staff: crewStaffLevel(crew, role),
+        // Letting people go is noticed by those who remain.
+        reputation: after.headcount < before.headcount ? Math.max(0, currentState.reputation - 1.5) : currentState.reputation,
+      } as V2State;
     }
     const primary: Decision = requested.find(d => d !== "no-action") ?? requested[0];
     const turnSpend = Math.max(0, turnCashBefore - currentState.cash);
