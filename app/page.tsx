@@ -1,16 +1,18 @@
 "use client";
 
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import Setup from "@/components/Setup";
 import Brewing from "@/components/Brewing";
 import MuteButton from "@/components/MuteButton";
 import { sfx, setSound, soundOn } from "@/lib/sound";
 import { startMusic, stopMusic, resumeMusic } from "@/lib/music";
 import { CafeScene, DecisionIcon, Spark } from "@/components/Art";
-import { ManagerPicker, SupplierPicker, MenuReport, AcumenPanel, InvestmentPicker } from "@/components/Depth";
+import { ManagerPicker, SupplierPicker, MenuReport, AcumenPanel, InvestmentPicker, CrewPanel } from "@/components/Depth";
 import { readAcumen } from "@/lib/acumen";
 import type { ManagerTrait, SupplierTrait } from "@/lib/people";
 import type { InvestmentId } from "@/lib/reinvestment";
+import { DEFAULT_OWNER, RANK_LABEL, RANK_BLURB, type OwnerProfile, type RankRequirement } from "@/lib/progression";
+import GameFeedback from "@/components/GameFeedback";
 import { RUN_LENGTH_DAYS, daysThisTurn, periodName, slotsForTurn, stageFor, turnLabel, type SpanReport } from "@/lib/cadence";
 import {
   FORMAT_OPTIONS, LOCATION_OPTIONS,
@@ -67,7 +69,7 @@ function outlook(id: Decision, state: GameState, spanDays: number): { line: stri
                warn: state.quality >= 93 ? "Near max" : undefined };
     case "hire": {
       const used = opened && state.serviceCapacity > 0 ? Math.round((state.customers / state.serviceCapacity) * 100) : null;
-      return { line: `Serve ${state.serviceCapacity} → ${Math.min(600, state.serviceCapacity + 15)}`,
+      return { line: "Hire or let people go",
                warn: used !== null && used < 70 ? `Only ${used}% used` : undefined };
     }
     case "raise-price":
@@ -207,7 +209,23 @@ export default function Home() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [acumenOpen, setAcumenOpen] = useState(false);
   const [investOpen, setInvestOpen] = useState(false);
-  const [traits, setTraits] = useState<{ manager?: ManagerTrait[]; supplier?: SupplierTrait[]; investment?: InvestmentId }>({});
+  const [crewOpen, setCrewOpen] = useState(false);
+  const [traits, setTraits] = useState<{ manager?: ManagerTrait[]; supplier?: SupplierTrait[]; investment?: InvestmentId; crew?: Record<string, number> }>({});
+  const [owner, setOwner] = useState<OwnerProfile>(DEFAULT_OWNER);
+  const [guest, setGuest] = useState(true);
+  const [journey, setJourney] = useState<{ requirements: RankRequirement[]; percent: number; next: string | null } | null>(null);
+  const [ranked, setRanked] = useState<{ label: string } | null>(null);
+
+  const refreshProgression = useCallback(async () => {
+    try {
+      const r = await fetch("/api/progression", { method: "POST" });
+      if (!r.ok) return;
+      const d = await r.json();
+      if (d.owner) setOwner(d.owner);
+      if (d.progress) setJourney({ requirements: d.progress.requirements, percent: d.progress.percent, next: d.progress.next });
+      if (d.promoted) setRanked({ label: d.promoted.label });
+    } catch { /* progression is a nicety, never a blocker */ }
+  }, []);
   const lastToast = useRef<string | null>(null);
   const [coach, setCoach] = useState(-1);
   useEffect(() => {
@@ -236,11 +254,15 @@ export default function Home() {
       const gs = sd.state as GameState;
       setState(gs);
       if (pd.player) { setPlayer(pd.player); setName(pd.player.display_name); }
+      if (pd.owner) setOwner(pd.owner);
+      setGuest(Boolean(pd.guest));
       if (gs.setupComplete) setScreen("game");
       else if (pd.player) setScreen("cafe-name");
       else setScreen("welcome");
     } catch (e) { setError(e instanceof Error ? e.message : "Unable to load."); setScreen("welcome"); }
   })(); }, []);
+
+  useEffect(() => { if (screen === "game") void refreshProgression(); }, [screen, refreshProgression]);
 
   useEffect(() => {
     if (screen !== "game" || !state) return;
@@ -254,12 +276,12 @@ export default function Home() {
     try {
       const r = await fetch("/api/player", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: name.trim() }) });
       const d = await r.json(); if (!r.ok) throw new Error(d.error || "Please enter your name.");
-      setPlayer(d.player); setScreen("cafe-name");
+      setPlayer(d.player); if (d.owner) setOwner(d.owner); setScreen("cafe-name");
     } catch (e) { setError(e instanceof Error ? e.message : "Something went wrong."); }
     finally { setBusy(false); }
   };
 
-  const openCafe = async (cfg: { capital: number; location: Location; format: BusinessFormat; menu: MenuItemId[] }) => {
+  const openCafe = async (cfg: Record<string, unknown>) => {
     setBusy(true); setError("");
     try {
       const r = await fetch("/api/game/setup", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ businessName: cafeName.trim(), ...cfg }) });
@@ -286,6 +308,7 @@ export default function Home() {
       else if (gained > 0) sfx.coin(); else sfx.loss();
       const wasStage = stageFor(before.day), nowStage = stageFor(after.day);
       if (wasStage.id !== nowStage.id) setPromoted({ from: wasStage.unit, to: nowStage.unit, label: nowStage.label });
+      void refreshProgression();
     } catch (e) { setError(e instanceof Error ? e.message : "Unable to finish the turn."); }
     finally { setBusy(false); }
   };
@@ -346,7 +369,7 @@ export default function Home() {
   );
 
   if (screen === "setup") return (
-    <Setup cafeName={cafeName} busy={busy} error={error} onBack={() => setScreen("cafe-name")} onOpen={openCafe} />
+    <Setup cafeName={cafeName} busy={busy} error={error} owner={owner} acumen={0} onBack={() => setScreen("cafe-name")} onOpen={openCafe} />
   );
 
   if (!state) return <Screen><H1>Something went wrong.</H1><P>{error || "Please refresh."}</P></Screen>;
@@ -414,7 +437,7 @@ export default function Home() {
           <Metric label="Profit" value={state.day <= 1 ? "—" : formatCompactINR(state.profit)} tone={state.profit >= 0 ? "pos" : "neg"} series={series("profit")} onClick={() => setDetail("profit")} />
           <Metric label="Reputation" value={`${Math.round(state.reputation)}%`} series={series("reputation")} onClick={() => setDetail("reputation")} />
           <Metric label="Supplies" value={`${Math.round(state.inventory)}%`} tone={state.inventory < 20 ? "neg" : undefined} series={series("inventory")} onClick={() => setDetail("stock")} />
-          <Metric label="Staff" value={`${state.staff}%`} onClick={() => setDetail("staff")} />
+          <Metric label="Staff" value={`${state.staff}%`} onClick={() => { sfx.tap(); setCrewOpen(true); }} />
         </div>
 
         <section className="card play-card">
@@ -476,6 +499,7 @@ export default function Home() {
                     if (on) { sfx.tap(); setPicked(p => p.filter(x => x !== id)); return; }
                     if (!ok) return;
                     // Big, one-off commitments deserve a proper read before you spend.
+                    if (id === "hire") { sfx.tap(); setCrewOpen(true); return; }
                     if (id === "hire-manager") { sfx.tap(); setManagerOpen(true); return; }
                     if (id === "supply-contract") { sfx.tap(); setSupplierOpen(true); return; }
                     if (id === "reinvest") { sfx.tap(); setInvestOpen(true); return; }
@@ -532,12 +556,31 @@ export default function Home() {
       {investOpen && <InvestmentPicker state={state} onClose={() => setInvestOpen(false)}
         onConfirm={(id) => { sfx.select(); setTraits(x => ({ ...x, investment: id })); setPicked(p => [...p, "reinvest"]); setInvestOpen(false); }} />}
       {menuOpen && <MenuReport state={state} onClose={() => setMenuOpen(false)} />}
-      {acumenOpen && <AcumenPanel state={state} onClose={() => setAcumenOpen(false)} />}
+      {crewOpen && <CrewPanel state={state} onClose={() => setCrewOpen(false)}
+        onChange={(c) => { sfx.select(); setTraits(x => ({ ...x, crew: c })); setPicked(p => p.includes("hire") ? p : [...p, "hire"]); setCrewOpen(false); }} />}
+      {acumenOpen && <AcumenPanel state={state} owner={owner} journey={journey} onClose={() => setAcumenOpen(false)} />}
       {ledgerOpen && <LedgerModal state={state} onClose={() => setLedgerOpen(false)} onMenu={() => { setLedgerOpen(false); setMenuOpen(true); }} />}
       {milestonesOpen && <MilestoneModal state={state} onClose={() => setMilestonesOpen(false)} />}
       {historyOpen && <HistoryModal state={state} onClose={() => setHistoryOpen(false)} />}
       {feedbackOpen && <FeedbackModal onDone={submitFeedback} />}
+      {ranked && <RankUp label={ranked.label} onClose={() => setRanked(null)} />}
+      <GameFeedback guest={guest} stage={RANK_LABEL[owner.rank]} day={state.day} />
     </main>
+  );
+}
+
+function RankUp({ label, onClose }: { label: string; onClose: () => void }) {
+  return (
+    <Modal onClose={onClose}>
+      <div className="promo">
+        <div className="promo-mark">★</div>
+        <div className="eyebrow">You have been promoted</div>
+        <h2>{label}</h2>
+        <p>{RANK_BLURB[(Object.keys(RANK_LABEL) as Array<keyof typeof RANK_LABEL>).find(k => RANK_LABEL[k] === label) ?? "founder"]}</p>
+        <p className="promo-note">This stays with you. Even if this cafe closes, you keep what you have earned — and more becomes available the next time you start.</p>
+        <button className="primary" onClick={onClose}>Good</button>
+      </div>
+    </Modal>
   );
 }
 
