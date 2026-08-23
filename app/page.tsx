@@ -7,6 +7,10 @@ import MuteButton from "@/components/MuteButton";
 import { sfx, setSound, soundOn } from "@/lib/sound";
 import { startMusic, stopMusic, resumeMusic } from "@/lib/music";
 import { CafeScene, DecisionIcon, Spark } from "@/components/Art";
+import { ManagerPicker, SupplierPicker, MenuReport, AcumenPanel, InvestmentPicker } from "@/components/Depth";
+import { readAcumen } from "@/lib/acumen";
+import type { ManagerTrait, SupplierTrait } from "@/lib/people";
+import type { InvestmentId } from "@/lib/reinvestment";
 import { RUN_LENGTH_DAYS, daysThisTurn, periodName, slotsForTurn, stageFor, turnLabel, type SpanReport } from "@/lib/cadence";
 import {
   FORMAT_OPTIONS, LOCATION_OPTIONS,
@@ -27,6 +31,7 @@ const DECISIONS: Array<[Decision, string, string]> = [
   ["hire-manager", "Hire a manager", "₹45,000"],
   ["extend-hours", "Extend opening hours", "₹22,000"],
   ["loyalty-programme", "Regulars programme", "₹30,000"],
+  ["reinvest", "Put money back in", "from ₹1.8L"],
 ];
 
 /** What this choice will actually do, given where the business is right now. */
@@ -71,13 +76,15 @@ function outlook(id: Decision, state: GameState, spanDays: number): { line: stri
     case "lower-price":
       return { line: `Price ${state.priceIndex} → ${Math.max(100, state.priceIndex - 6)}` };
     case "supply-contract":
-      return { line: "Supplies refill themselves",
+      return { line: "Choose your supplier's strengths",
                warn: spanDays < 14 ? "Better later" : undefined };
     case "hire-manager":
-      return { line: "Steadier service · +₹2.6k/day" };
+      return { line: "Choose what matters in them" };
     case "extend-hours":
       return { line: `Serve ${state.serviceCapacity} → ${Math.min(600, state.serviceCapacity + 40)}`,
                warn: state.inventory < 30 ? "Needs supplies" : undefined };
+    case "reinvest":
+      return { line: "Build something lasting", warn: state.cash < 200000 ? "Needs real cash" : undefined };
     case "loyalty-programme":
       return { line: "Regulars return more",
                warn: state.reputation < 45 ? "Needs goodwill" : undefined };
@@ -98,6 +105,7 @@ function unavailableReason(id: Decision, state: GameState): string {
   if (id === "quality" && state.quality >= 100) return "Quality is at its best";
   if (id === "marketing" && state.marketing >= 100) return "Awareness is maxed out";
   if (id === "hire" && state.staff >= 100) return "Fully staffed";
+  if (id === "reinvest" && state.day < 120) return "Once the cafe is established";
   if (STRATEGIC.has(id) && state.day <= 90) return "Unlocks after month 3";
   return "Not enough cash";
 }
@@ -110,7 +118,7 @@ const RESTOCKS: Array<[Decision, string, number, number]> = [
 ];
 /** How many delivery sizes are on offer, by how long the turn is. */
 const restockChoices = (spanDays: number) => (spanDays >= 12 ? 3 : spanDays >= 5 ? 2 : 1);
-const STRATEGIC = new Set<Decision>(["supply-contract", "hire-manager", "extend-hours", "loyalty-programme"]);
+const STRATEGIC = new Set<Decision>(["supply-contract", "hire-manager", "extend-hours", "loyalty-programme", "reinvest"]);
 const EXTRA_NAMES: Partial<Record<Decision, string>> = {
   "inventory-2": "order a double delivery",
   "inventory-3": "order a full restock",
@@ -194,6 +202,12 @@ export default function Home() {
   const [explain, setExplain] = useState<Decision | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [resuming, setResuming] = useState<{ reason: string; day: number } | null>(null);
+  const [managerOpen, setManagerOpen] = useState(false);
+  const [supplierOpen, setSupplierOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [acumenOpen, setAcumenOpen] = useState(false);
+  const [investOpen, setInvestOpen] = useState(false);
+  const [traits, setTraits] = useState<{ manager?: ManagerTrait[]; supplier?: SupplierTrait[]; investment?: InvestmentId }>({});
   const lastToast = useRef<string | null>(null);
   const [coach, setCoach] = useState(-1);
   useEffect(() => {
@@ -260,10 +274,10 @@ export default function Home() {
     const before = state; const chosen = [...picked];
     setBusy(true); setError("");
     try {
-      const r = await fetch("/api/simulate-turn", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ decisions: chosen, decision: chosen[0], eventOption }) });
+      const r = await fetch("/api/simulate-turn", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ decisions: chosen, decision: chosen[0], eventOption, traits }) });
       const d = await r.json(); if (!r.ok) throw new Error(d.error || "Unable to finish the turn.");
       const after = d.state as GameState;
-      setState(after); setPicked([]); setEventOption(null);
+      setState(after); setPicked([]); setEventOption(null); setTraits({});
       const rep = d.report as SpanReport | undefined;
       setResuming(rep?.interrupted ? { reason: rep.interrupted.reason, day: rep.interrupted.day } : null);
       setSummary({ before, after, decision: chosen.find(x => x !== "no-action") ?? chosen[0], picked: chosen, report: rep });
@@ -369,6 +383,7 @@ export default function Home() {
   // an interruption these differ, and every label and cost estimate must use the real one.
   const spanDays = daysThisTurn(state.day);
   const nudge = nudgeFor(state);
+  void nudge;
   const location = LOCATION_OPTIONS.find(x => x.id === state.location);
   const format = FORMAT_OPTIONS.find(x => x.id === state.format);
 
@@ -382,6 +397,7 @@ export default function Home() {
           </div>
           <div className="bar-actions">
             <button className="ghost" onClick={() => { const next = !audio; setSound(next); setAudio(next); if (next) { startMusic(); resumeMusic(); sfx.select(); } else stopMusic(); }} aria-label={audio ? "Turn sound off" : "Turn sound on"}>{audio ? "🔊" : "🔇"}</button>
+            <button className="ghost" onClick={() => { sfx.tap(); setAcumenOpen(true); }} aria-label="How you are doing as an owner">You</button>
             <button className="ghost" onClick={() => { sfx.tap(); setHistoryOpen(true); }}>History</button>
             <button className="ghost" onClick={newGame} disabled={busy}>New</button>
           </div>
@@ -460,6 +476,9 @@ export default function Home() {
                     if (on) { sfx.tap(); setPicked(p => p.filter(x => x !== id)); return; }
                     if (!ok) return;
                     // Big, one-off commitments deserve a proper read before you spend.
+                    if (id === "hire-manager") { sfx.tap(); setManagerOpen(true); return; }
+                    if (id === "supply-contract") { sfx.tap(); setSupplierOpen(true); return; }
+                    if (id === "reinvest") { sfx.tap(); setInvestOpen(true); return; }
                     if (STRATEGIC.has(id)) { sfx.tap(); setExplain(id); return; }
                     sfx.select(); setPicked(p => [...p, id]);
                   }}
@@ -492,7 +511,7 @@ export default function Home() {
       )}
       {busy && !summary && <div className="backdrop brew-backdrop"><Brewing label={stageFor(state.day).id === "daily" ? "Running the day…" : `Running the ${periodName(state.day)}…`} /></div>}
       {toast && <Toast text={toast} onDone={() => setToast(null)} />}
-      {summary && <DaySummary {...summary} onClose={() => { setSummary(null); const n = nudgeFor(after0(summary)); if (n && n !== lastToast.current) { lastToast.current = n; setToast(n); } }} />}
+      {summary && <DaySummary {...summary} onClose={() => { setSummary(null); const n = readAcumen(after0(summary) as Parameters<typeof readAcumen>[0]).coaching ?? nudgeFor(after0(summary)); if (n && n !== lastToast.current) { lastToast.current = n; setToast(n); } }} />}
       {!summary && promoted && <PromotionModal {...promoted} onClose={() => setPromoted(null)} />}
       {detail && <MetricDetail metric={detail} state={state} onClose={() => setDetail(null)} />}
       {coach >= 0 && <Coach step={coach} onNext={() => setCoach(c => c + 1)} onDone={() => { localStorage.setItem("bs-coached", "1"); setCoach(-1); }} />}
@@ -506,7 +525,15 @@ export default function Home() {
           onPick={(d) => { sfx.select(); setPicked(p => [...p.filter(x => !x.startsWith("inventory")), d]); setRestockOpen(false); }}
           onClose={() => setRestockOpen(false)} />
       )}
-      {ledgerOpen && <LedgerModal state={state} onClose={() => setLedgerOpen(false)} />}
+      {managerOpen && <ManagerPicker onClose={() => setManagerOpen(false)}
+        onConfirm={(t) => { sfx.select(); setTraits(x => ({ ...x, manager: t })); setPicked(p => [...p, "hire-manager"]); setManagerOpen(false); }} />}
+      {supplierOpen && <SupplierPicker onClose={() => setSupplierOpen(false)}
+        onConfirm={(t) => { sfx.select(); setTraits(x => ({ ...x, supplier: t })); setPicked(p => [...p, "supply-contract"]); setSupplierOpen(false); }} />}
+      {investOpen && <InvestmentPicker state={state} onClose={() => setInvestOpen(false)}
+        onConfirm={(id) => { sfx.select(); setTraits(x => ({ ...x, investment: id })); setPicked(p => [...p, "reinvest"]); setInvestOpen(false); }} />}
+      {menuOpen && <MenuReport state={state} onClose={() => setMenuOpen(false)} />}
+      {acumenOpen && <AcumenPanel state={state} onClose={() => setAcumenOpen(false)} />}
+      {ledgerOpen && <LedgerModal state={state} onClose={() => setLedgerOpen(false)} onMenu={() => { setLedgerOpen(false); setMenuOpen(true); }} />}
       {milestonesOpen && <MilestoneModal state={state} onClose={() => setMilestonesOpen(false)} />}
       {historyOpen && <HistoryModal state={state} onClose={() => setHistoryOpen(false)} />}
       {feedbackOpen && <FeedbackModal onDone={submitFeedback} />}
@@ -618,7 +645,7 @@ function RestockModal({ state, spanDays, cash, onPick, onClose }: { state: GameS
   );
 }
 
-function LedgerModal({ state, onClose }: { state: GameState; onClose: () => void }) {
+function LedgerModal({ state, onClose, onMenu }: { state: GameState; onClose: () => void; onMenu?: () => void }) {
   const loc = LOCATION_OPTIONS.find(l => l.id === state.location);
   const fmt = FORMAT_OPTIONS.find(f => f.id === state.format);
   const rentDaily = Math.round((loc?.rentMonthly ?? 0) / 30);
@@ -657,6 +684,7 @@ function LedgerModal({ state, onClose }: { state: GameState; onClose: () => void
         <div><span>Can serve</span><strong>{state.serviceCapacity}/day</strong></div>
         <div><span>Menu</span><strong>{state.menu.length} items</strong></div>
       </div>
+      {onMenu && <button className="text-button" onClick={onMenu}>See what is actually selling</button>}
       <button className="primary" onClick={onClose}>Close the books</button>
     </Modal>
   );
