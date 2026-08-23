@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import ProgressionDock from "@/components/ProgressionDock";
 
 export const metadata: Metadata = {
   title: "Business Simulator",
@@ -9,7 +10,7 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body>{children}<ProgressionDock /></body>
     </html>
   );
 }
