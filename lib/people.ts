@@ -40,9 +40,9 @@ export type Supplier = { traits: SupplierTrait[]; signedOnDay: number };
 
 /** What a manager costs. More demanded, more paid. */
 export function managerSalary(traits: ManagerTrait[]): number {
-  const base = 2200;
+  const base = 1300;
   const premium: Partial<Record<ManagerTrait, number>> = {
-    people: 600, food: 700, organised: 500, hospitality: 500, loyal: 400, punctual: 300, thrifty: 300,
+    people: 320, food: 380, organised: 280, hospitality: 260, loyal: 200, punctual: 160, thrifty: 180,
   };
   return base + traits.reduce((sum, t) => sum + (premium[t] ?? 0), 0);
 }
@@ -54,10 +54,11 @@ export type ManagerEffects = {
   wastageFactor: number;     // thrifty managers lose less
   stockSteadiness: number;   // organised managers keep shelves sensible
   poachResistance: number;   // loyal managers do not leave
+  throughput: number;        // a well-run floor simply serves more people
 };
 
 export function managerEffects(manager: Manager | null): ManagerEffects {
-  const none: ManagerEffects = { qualityDrift: 0, serviceRelief: 0, reputationDaily: 0, wastageFactor: 1, stockSteadiness: 0, poachResistance: 0 };
+  const none: ManagerEffects = { qualityDrift: 0, serviceRelief: 0, reputationDaily: 0, wastageFactor: 1, stockSteadiness: 0, poachResistance: 0, throughput: 1 };
   if (!manager) return none;
   const has = (t: ManagerTrait) => manager.traits.includes(t);
   return {
@@ -69,6 +70,10 @@ export function managerEffects(manager: Manager | null): ManagerEffects {
     wastageFactor: has("thrifty") ? 0.7 : 1,
     stockSteadiness: has("organised") ? 0.35 : 0,
     poachResistance: has("loyal") ? 1 : 0,
+    // The real return on a manager: the place runs better than you can run it
+    // alone, so more people get served without service falling apart.
+    throughput: 1 + (has("organised") ? 0.07 : 0) + (has("people") ? 0.05 : 0)
+      + (has("hospitality") ? 0.04 : 0) + (has("punctual") ? 0.03 : 0),
   };
 }
 
