@@ -222,7 +222,7 @@ export function generateEvent(state: GameState): GameEvent | null {
   offer(state.consecutivePriceRaises >= 2 ? 3 : 0, makeEvent("bad-review", "Customers are talking about your prices",
     "A regular has posted that the cafe has got expensive. How you answer will shape the next few days.", 2,
     [{ id: "hold-price", title: "Hold prices steady", description: "Give people a reason to stay while things settle.", cost: 0 },
-     { id: "add-value", title: "Add a small combo offer", description: "Protect the headline price and add value instead.", cost: c(12000) },
+     { id: "add-value", title: "Add a small combo offer", description: "Protect the headline price and add value instead.", cost: c(7000) },
      { id: "ignore-review", title: "Let it pass", description: "Protect the margin and accept the risk.", cost: 0 }]));
 
   offer(1.2, makeEvent("supplier-increase", "Your supplier has raised prices",
@@ -243,7 +243,7 @@ export function generateEvent(state: GameState): GameEvent | null {
   // --- Mumbai specifics ---
   offer(state.day > 20 ? 1.2 : 0, makeEvent("health-inspection", "A health inspector is at the door",
     "Unannounced, as they always are. Your kitchen is about to be looked at properly.", 2,
-    [{ id: "full-clean", title: "Stop service and put it right", description: "Close for the afternoon and fix everything properly.", cost: c(14000) },
+    [{ id: "full-clean", title: "Stop service and put it right", description: "Close for the afternoon and fix everything properly.", cost: c(9000) },
      { id: "quick-tidy", title: "Tidy quickly and hope", description: "Keep serving. Risk a fine and a bad note on file.", cost: 0 }]));
 
   offer(state.day > 60 ? 1.3 : 0, makeEvent("rent-hike", "Your landlord wants more",
@@ -253,17 +253,17 @@ export function generateEvent(state: GameState): GameEvent | null {
 
   offer(state.reputation > 55 ? 1.2 : 0, makeEvent("delivery-app", "A delivery app wants you on the platform",
     "More orders, more visibility — and a commission on every single one.", 2,
-    [{ id: "join-app", title: "Sign up", description: "New customers you would never have reached, at a cost per order.", cost: c(10000) },
+    [{ id: "join-app", title: "Sign up", description: "New customers you would never have reached, at a cost per order.", cost: c(7000) },
      { id: "stay-off", title: "Stay independent", description: "Keep your margin and your own customers.", cost: 0 }]));
 
   offer(state.day > 40 ? 1 : 0, makeEvent("monsoon-flood", "The street is under water",
     "Heavy rain has flooded the lane. Nobody is walking to a cafe today.", 2,
-    [{ id: "sandbags", title: "Protect the shop", description: "Spend on keeping the water and the damage out.", cost: c(11000) },
+    [{ id: "sandbags", title: "Protect the shop", description: "Sandbags, pumps and a long night.", cost: c(6000) },
      { id: "shut-early", title: "Shut early", description: "Send everyone home and lose the day's trade.", cost: 0 }]));
 
   offer(1, makeEvent("power-cut", "The power has gone",
     "No lights, no machines, and a queue outside.", 1,
-    [{ id: "hire-genset", title: "Hire a generator", description: "Keep trading through it.", cost: c(9000) },
+    [{ id: "hire-genset", title: "Hire a generator", description: "Keep trading through it.", cost: c(4500) },
      { id: "wait-it-out", title: "Wait it out", description: "Serve what you can cold and lose the rest.", cost: 0 }]));
 
   offer(state.staff >= 70 ? 1.2 : 0, makeEvent("staff-poached", "A chain is trying to hire your best person",
@@ -273,17 +273,17 @@ export function generateEvent(state: GameState): GameEvent | null {
 
   offer(state.reputation >= 65 ? 1.4 : 0, makeEvent("food-blogger", "Someone is photographing their coffee",
     "You recognise them. They review cafes, and a lot of people read it.", 2,
-    [{ id: "look-after-them", title: "Look after them properly", description: "Comp the table and put your best out.", cost: c(6000) },
+    [{ id: "look-after-them", title: "Look after them properly", description: "Comp the table and put your best out.", cost: c(2000) },
      { id: "treat-normal", title: "Treat them like anyone else", description: "Let the cafe speak for itself.", cost: 0 }]));
 
   offer(state.day > 75 ? 1 : 0, makeEvent("licence-renewal", "Your licence is due for renewal",
     "Paperwork, fees, and someone who can make it move faster.", 1,
-    [{ id: "pay-proper", title: "Do it properly", description: "Pay the fees and file it yourself. Slow but clean.", cost: c(13000) },
-     { id: "use-agent", title: "Use an agent", description: "Costs more, takes none of your time.", cost: c(21000) }]));
+    [{ id: "pay-proper", title: "Do it properly", description: "Pay the fees and file it yourself. Slow but clean.", cost: c(8000) },
+     { id: "use-agent", title: "Use an agent", description: "Costs more, takes none of your time.", cost: c(14000) }]));
 
   offer(state.day > 30 ? 0.9 : 0, makeEvent("construction", "They have dug up the road outside",
     "Municipal work. Dust, noise, and a barrier where your customers used to walk.", 2,
-    [{ id: "signage", title: "Put up signage and offers", description: "Spend on pulling people past the mess.", cost: c(10000) },
+    [{ id: "signage", title: "Put up signage and offers", description: "Spend on pulling people past the mess.", cost: c(6000) },
      { id: "ride-construction", title: "Wait for it to finish", description: "Nobody knows how long. Save the money.", cost: 0 }]));
 
   offer(state.day > 50 ? 1 : 0, makeEvent("rival-closes", "The cafe down the road has shut",
@@ -299,7 +299,7 @@ export function generateEvent(state: GameState): GameEvent | null {
 
   offer(state.reputation >= 70 ? (easy ? 2 : 1.2) : 0, makeEvent("viral-mention", "Someone posted about you",
     "A local food page has put your cafe in front of a lot of people.", 2,
-    [{ id: "amplify", title: "Push it while it's warm", description: "Spend on a small boost behind the attention.", cost: c(10000) },
+    [{ id: "amplify", title: "Push it while it's warm", description: "Spend on a small boost behind the attention.", cost: c(6000) },
      { id: "let-it-spread", title: "Let it travel", description: "Spend nothing and see how far word carries.", cost: 0 }]));
 
   offer(state.serviceCapacity >= 150 ? (hard ? 1.6 : 1) : 0, makeEvent("bulk-order", "An office wants a standing order",
@@ -315,12 +315,34 @@ export function generateEvent(state: GameState): GameEvent | null {
 
   offer(0.5, makeEvent("rain", "Rain has slowed the street",
     "Fewer people are walking today. You can spend to pull them in or ride it out.", 1,
-    [{ id: "delivery-push", title: "Push a local promotion", description: "Spend to recover some of the day.", cost: c(9000) },
+    [{ id: "delivery-push", title: "Push a local promotion", description: "Spend to recover some of the day.", cost: c(5000) },
      { id: "ride-it-out", title: "Ride it out", description: "Save the cash and accept a quiet day.", cost: 0 }]));
+
+  // Some situations recur naturally; others should happen once or twice a year.
+  // A landlord does not raise the rent every quarter and an inspector does not
+  // come back next month, so these carry a real cooldown measured in days.
+  const COOLDOWN: Partial<Record<GameEventId, number>> = {
+    "rent-hike": 200, "licence-renewal": 250, "health-inspection": 150,
+    "delivery-app": 300, "rival-closes": 250, "construction": 180,
+    "staff-poached": 120, "monsoon-flood": 120, "equipment-issue": 90,
+    "supplier-increase": 80, "food-blogger": 90, "viral-mention": 90,
+    "bulk-order": 70, "power-cut": 60, "competitor-promotion": 60,
+  };
+  const lastSeen = new Map<string, number>();
+  for (const entry of state.eventHistory) {
+    const [d, id] = entry.split(":");
+    lastSeen.set(id, Math.max(lastSeen.get(id) ?? 0, Number(d) || 0));
+  }
+  const offCooldown = (id: GameEventId) => {
+    const gap = COOLDOWN[id];
+    if (!gap) return true;
+    const seen = lastSeen.get(id);
+    return seen === undefined || state.day - seen >= gap;
+  };
 
   // Recently seen events step aside so situations do not repeat.
   const recent = state.eventHistory.slice(-4).map(entry => entry.split(":")[1]);
-  const eligible = pool.filter(p => !recent.includes(p.event.id));
+  const eligible = pool.filter(p => !recent.includes(p.event.id) && offCooldown(p.event.id));
   const usable = eligible.length ? eligible : pool;
   if (!usable.length) return null;
 
