@@ -7,7 +7,7 @@ import MuteButton from "@/components/MuteButton";
 import { sfx, setSound, soundOn } from "@/lib/sound";
 import { startMusic, stopMusic, resumeMusic } from "@/lib/music";
 import { CafeScene, DecisionIcon, Spark } from "@/components/Art";
-import { RUN_LENGTH_DAYS, periodName, slotsForTurn, stageFor, turnLabel, type SpanReport } from "@/lib/cadence";
+import { RUN_LENGTH_DAYS, daysThisTurn, periodName, slotsForTurn, stageFor, turnLabel, type SpanReport } from "@/lib/cadence";
 import {
   FORMAT_OPTIONS, LOCATION_OPTIONS,
   formatINR, formatCompactINR, getAvailableDecisions,
@@ -193,6 +193,7 @@ export default function Home() {
   const [restockOpen, setRestockOpen] = useState(false);
   const [explain, setExplain] = useState<Decision | null>(null);
   const [toast, setToast] = useState<string | null>(null);
+  const [resuming, setResuming] = useState<{ reason: string; day: number } | null>(null);
   const lastToast = useRef<string | null>(null);
   const [coach, setCoach] = useState(-1);
   useEffect(() => {
@@ -263,7 +264,9 @@ export default function Home() {
       const d = await r.json(); if (!r.ok) throw new Error(d.error || "Unable to finish the turn.");
       const after = d.state as GameState;
       setState(after); setPicked([]); setEventOption(null);
-      setSummary({ before, after, decision: chosen.find(x => x !== "no-action") ?? chosen[0], picked: chosen, report: d.report as SpanReport | undefined });
+      const rep = d.report as SpanReport | undefined;
+      setResuming(rep?.interrupted ? { reason: rep.interrupted.reason, day: rep.interrupted.day } : null);
+      setSummary({ before, after, decision: chosen.find(x => x !== "no-action") ?? chosen[0], picked: chosen, report: rep });
       const gained = (d.report as SpanReport | undefined)?.profit ?? after.profit;
       if (after.milestones.length > before.milestones.length) sfx.milestone();
       else if (gained > 0) sfx.coin(); else sfx.loss();
@@ -362,7 +365,9 @@ export default function Home() {
     [...state.dayHistory.slice(-7).map(r => Number(k === "cash" ? r.cashAfter : k === "customers" ? r.customers : k === "profit" ? r.profit : k === "reputation" ? r.reputation : r.inventory))];
   const available = new Set(getAvailableDecisions(state));
   const slots = slotsForTurn(state.day);
-  const spanDays = stageFor(state.day).days;
+  // Days this turn actually covers — not the full stage. On a turn resumed after
+  // an interruption these differ, and every label and cost estimate must use the real one.
+  const spanDays = daysThisTurn(state.day);
   const nudge = nudgeFor(state);
   const location = LOCATION_OPTIONS.find(x => x.id === state.location);
   const format = FORMAT_OPTIONS.find(x => x.id === state.format);
@@ -406,11 +411,17 @@ export default function Home() {
             </button>
           )}
           <Eyebrow>{turnLabel(state.day)}</Eyebrow>
-          <h2>{stageFor(state.day).id === "daily" ? `How will you run ${state.businessName || "the cafe"} today?` : `What\u2019s your plan for the next ${spanDays} days?`}</h2>
+          <h2>{resuming
+            ? (resuming.reason === "stockout" ? "Sort the supplies out." : resuming.reason === "cash-critical" ? "Steady the ship." : "Deal with this first.")
+            : stageFor(state.day).id === "daily"
+              ? `How will you run ${state.businessName || "the cafe"} today?`
+              : `What\u2019s your plan for the next ${spanDays} days?`}</h2>
           <div className="slotline">
-            {slots > 1
-              ? <>Choose up to <strong>{slots}</strong> things for these {spanDays} days. {picked.length} chosen.</>
-              : <>Choose <strong>one</strong> thing{spanDays > 1 ? ` for these ${spanDays} days` : " to do today"}.</>}
+            {resuming
+              ? <>Your plan is still running. Just handle this, and the remaining {spanDays} day{spanDays === 1 ? "" : "s"} play out.</>
+              : slots > 1
+                ? <>Choose up to <strong>{slots}</strong> things for these {spanDays} days. {picked.length} chosen.</>
+                : <>Choose <strong>one</strong> thing{spanDays > 1 ? ` for these ${spanDays} days` : " to do today"}.</>}
           </div>
           </div>
           <div className="dec-grid">
@@ -470,7 +481,7 @@ export default function Home() {
           </div>
           <Journey state={state} onOpen={() => setMilestonesOpen(true)} />
           <button className="primary" onClick={finishDay} disabled={busy || picked.length === 0 || !!(state.currentEvent && !eventOption)}>
-            {busy ? "Playing it out…" : stageFor(state.day).id === "daily" ? "Finish the day" : spanDays === 1 ? "Run the day" : `Run these ${spanDays} days`}
+            {busy ? "Playing it out…" : resuming ? (spanDays === 1 ? "Carry on for the last day" : `Carry on for ${spanDays} more days`) : stageFor(state.day).id === "daily" ? "Finish the day" : spanDays === 1 ? "Run the day" : `Run these ${spanDays} days`}
           </button>
           {error && <div className="notice">{error}</div>}
         </section>
