@@ -11,7 +11,7 @@ import { ManagerPicker, SupplierPicker, MenuReport, AcumenPanel, InvestmentPicke
 import { readAcumen } from "@/lib/acumen";
 import type { ManagerTrait, SupplierTrait } from "@/lib/people";
 import type { InvestmentId } from "@/lib/reinvestment";
-import { DEFAULT_OWNER, RANK_LABEL, RANK_BLURB, type OwnerProfile, type RankRequirement } from "@/lib/progression";
+import { DEFAULT_OWNER, RANK_LABEL, RANK_BLURB, CAPITAL_GATES, checkGate, type OwnerProfile, type RankRequirement } from "@/lib/progression";
 import GameFeedback from "@/components/GameFeedback";
 import { RUN_LENGTH_DAYS, daysThisTurn, periodName, slotsForTurn, stageFor, turnLabel, type SpanReport } from "@/lib/cadence";
 import {
@@ -25,7 +25,7 @@ const DECISIONS: Array<[Decision, string, string]> = [
   ["marketing", "Run marketing", "₹10,000"],
   ["quality", "Improve quality", "₹12,000"],
   ["inventory", "Restock", "from ₹8,000"],
-  ["hire", "Hire staff", "₹18,000"],
+  ["hire", "Manage the crew", "Hire or let go"],
   ["raise-price", "Raise prices", "Free"],
   ["lower-price", "Lower prices", "Free"],
   ["no-action", "Do nothing", "Free"],
@@ -69,8 +69,9 @@ function outlook(id: Decision, state: GameState, spanDays: number): { line: stri
                warn: state.quality >= 93 ? "Near max" : undefined };
     case "hire": {
       const used = opened && state.serviceCapacity > 0 ? Math.round((state.customers / state.serviceCapacity) * 100) : null;
-      return { line: "Hire or let people go",
-               warn: used !== null && used < 70 ? `Only ${used}% used` : undefined };
+      return { line: used !== null ? `Using ${used}% of your capacity` : "Set your crew",
+               warn: used !== null && used < 60 ? "Paying for hands you are not using"
+                 : used !== null && used > 92 ? "Turning people away" : undefined };
     }
     case "raise-price":
       return { line: `Price ${state.priceIndex} → ${Math.min(140, state.priceIndex + 6)}`,
@@ -106,7 +107,7 @@ function unavailableReason(id: Decision, state: GameState): string {
   if (id.startsWith("inventory") && state.inventory >= 100) return "Shelves are full";
   if (id === "quality" && state.quality >= 100) return "Quality is at its best";
   if (id === "marketing" && state.marketing >= 100) return "Awareness is maxed out";
-  if (id === "hire" && state.staff >= 100) return "Fully staffed";
+  if (id === "hire" && state.staff >= 100) return "Nobody left to hire";
   if (id === "reinvest" && state.day < 120) return "Once the cafe is established";
   if (STRATEGIC.has(id) && state.day <= 90) return "Unlocks after month 3";
   return "Not enough cash";
@@ -128,6 +129,18 @@ const EXTRA_NAMES: Partial<Record<Decision, string>> = {
 const decisionName = (id: Decision) => EXTRA_NAMES[id] ?? DECISIONS.find(x => x[0] === id)?.[1] ?? "keep things steady";
 
 const EVENT_NAMES: Record<string, string> = {
+  "struggling-cook": "Your cook is struggling", "ageing-server": "Your oldest server is slowing",
+  "family-illness": "Someone needed time away", "loyal-underperformer": "Loyal, but not very good",
+  "water-shortage": "The tanker did not come", "heatwave": "Heatwave", "festival-rush": "Festival crowds",
+  "exam-season": "Exam season", "long-weekend": "A long weekend", "tax-notice": "Notice from the tax office",
+  "pest-notice": "A complaint was filed", "lease-offer": "Landlord offered to sell",
+  "rival-opens": "A rival opened next door", "metro-station": "Metro construction",
+  "rider-strike": "Delivery riders struck", "staff-raise": "The team asked for more",
+  "theft": "The till was short", "allergy-complaint": "An allergic reaction",
+  "review-bombing": "A run of bad reviews", "newspaper-feature": "A newspaper feature",
+  "influencer-offer": "An influencer got in touch", "catering-enquiry": "A catering enquiry",
+  "musician-offer": "A musician wanted to play", "milk-price": "Milk went up",
+  "supplier-exclusive": "Supplier wanted exclusivity", "payment-outage": "Card payments went down",
   "health-inspection": "Health inspection", "rent-hike": "Landlord raised the rent",
   "delivery-app": "Delivery app approached you", "monsoon-flood": "The street flooded",
   "power-cut": "Power cut", "staff-poached": "Staff being poached",
@@ -140,6 +153,32 @@ const EVENT_NAMES: Record<string, string> = {
   "bulk-order": "Bulk order offered", "stock-shortage": "Stock ran low",
 };
 const EVENT_CHOICES: Record<string, string> = {
+  "replace-cook": "Replaced him", "second-cook": "Brought in a second cook", "give-time-off": "Gave him paid time off",
+  "let-him-go": "Let him go", "quieter-shifts": "Moved him to quieter shifts", "keep-as-is": "Changed nothing",
+  "hold-the-job": "Held the job, paid half", "unpaid-hold": "Held the job, unpaid", "fill-position": "Filled the position",
+  "train-them": "Paid to train them", "move-them": "Moved them off the counter", "let-them-go-loyal": "Let them go",
+  "buy-tanker": "Paid for a tanker", "limited-menu": "Ran a limited menu",
+  "cold-push": "Pushed cold drinks", "endure-heat": "Rode it out",
+  "stock-up-festival": "Stocked and staffed up", "normal-festival": "Traded as normal",
+  "welcome-students": "Let them stay", "minimum-order": "Set a minimum order",
+  "weekend-special": "Ran a special", "weekend-normal": "Opened as usual",
+  "hire-accountant": "Got an accountant", "handle-tax-self": "Handled it myself",
+  "full-fumigation": "Closed and fumigated", "spot-treatment": "Treated it overnight",
+  "buy-the-shop": "Bought the shop", "decline-purchase": "Let it pass",
+  "pre-empt": "Got ahead of them", "wait-and-see": "Waited and saw",
+  "endure-metro": "Sat tight", "reposition": "Repositioned for commuters",
+  "walkin-offer": "Pushed a walk-in offer", "quiet-days": "Accepted the quiet",
+  "give-raise": "Gave the raise", "refuse-raise": "Said not yet",
+  "install-cameras": "Put cameras in", "let-it-go": "Said nothing",
+  "full-apology": "Apologised and retrained", "deny-fault": "Stood my ground",
+  "respond-publicly": "Replied to every one", "ignore-reviews": "Ignored them",
+  "host-feature": "Did it properly", "quick-feature": "Let them come as we are",
+  "accept-collab": "Agreed to it", "decline-collab": "Declined",
+  "take-catering": "Took it on", "decline-catering": "Turned it down",
+  "book-musician": "Booked him", "no-music": "Kept it quiet",
+  "absorb-milk": "Absorbed it", "switch-dairy": "Found another dairy",
+  "sign-exclusive": "Signed exclusivity", "stay-flexible": "Stayed free to shop around",
+  "cash-only-signs": "Put signs up", "trust-customers": "Let regulars pay later",
   "full-clean": "Closed and cleaned properly", "quick-tidy": "Tidied and hoped",
   "negotiate-rent": "Negotiated", "accept-rent": "Accepted the rise",
   "join-app": "Joined the platform", "stay-off": "Stayed independent",
@@ -197,7 +236,6 @@ export default function Home() {
   const [error, setError] = useState("");
   const [historyOpen, setHistoryOpen] = useState(false);
   const [detail, setDetail] = useState<MetricKey | null>(null);
-  const [promoted, setPromoted] = useState<{ from: string; to: string; label: string } | null>(null);
   const [ledgerOpen, setLedgerOpen] = useState(false);
   const [milestonesOpen, setMilestonesOpen] = useState(false);
   const [restockOpen, setRestockOpen] = useState(false);
@@ -214,7 +252,9 @@ export default function Home() {
   const [owner, setOwner] = useState<OwnerProfile>(DEFAULT_OWNER);
   const [guest, setGuest] = useState(true);
   const [journey, setJourney] = useState<{ requirements: RankRequirement[]; percent: number; next: string | null } | null>(null);
-  const [ranked, setRanked] = useState<{ label: string } | null>(null);
+  // Cards after a turn used to appear on top of each other. They now wait in line.
+  const [queue, setQueue] = useState<Array<{ kind: "stage" | "rank" | "strategic"; label: string; from?: string; to?: string }>>([]);
+  const showNext = useCallback(() => setQueue(q => q.slice(1)), []);
 
   const refreshProgression = useCallback(async () => {
     try {
@@ -223,7 +263,7 @@ export default function Home() {
       const d = await r.json();
       if (d.owner) setOwner(d.owner);
       if (d.progress) setJourney({ requirements: d.progress.requirements, percent: d.progress.percent, next: d.progress.next });
-      if (d.promoted) setRanked({ label: d.promoted.label });
+      if (d.promoted) setQueue(q => q.some(x => x.kind === "rank") ? q : [...q, { kind: "rank", label: d.promoted.label }]);
     } catch { /* progression is a nicety, never a blocker */ }
   }, []);
   const lastToast = useRef<string | null>(null);
@@ -307,7 +347,12 @@ export default function Home() {
       if (after.milestones.length > before.milestones.length) sfx.milestone();
       else if (gained > 0) sfx.coin(); else sfx.loss();
       const wasStage = stageFor(before.day), nowStage = stageFor(after.day);
-      if (wasStage.id !== nowStage.id) setPromoted({ from: wasStage.unit, to: nowStage.unit, label: nowStage.label });
+      if (wasStage.id !== nowStage.id) setQueue(q => [...q, { kind: "stage", from: wasStage.unit, to: nowStage.unit, label: nowStage.label }]);
+      // The long-term options appear quietly at day 91. Say so, once.
+      if (before.day <= 90 && after.day > 90 && localStorage.getItem("bs-strategic-told") !== "1") {
+        localStorage.setItem("bs-strategic-told", "1");
+        setQueue(q => [...q, { kind: "strategic", label: "" }]);
+      }
       void refreshProgression();
     } catch (e) { setError(e instanceof Error ? e.message : "Unable to finish the turn."); }
     finally { setBusy(false); }
@@ -374,6 +419,13 @@ export default function Home() {
 
   if (!state) return <Screen><H1>Something went wrong.</H1><P>{error || "Please refresh."}</P></Screen>;
 
+  const endAcumen = readAcumen(state as Parameters<typeof readAcumen>[0]).overall;
+  const unlockedNow = CAPITAL_GATES.filter(g => g.rank !== "founder" && checkGate(g, owner, endAcumen).unlocked).map(g => g.label);
+  const lockedStill = CAPITAL_GATES.filter(g => !checkGate(g, owner, endAcumen).unlocked);
+  const nextUp = lockedStill.length
+    ? `${lockedStill[0].label} — ${checkGate(lockedStill[0], owner, endAcumen).reason}`
+    : null;
+
   if (state.cash <= 0 || state.day > RUN_LENGTH_DAYS) {
     const won = state.day > RUN_LENGTH_DAYS && state.cumulativeProfit > 0;
     const survived = state.day > RUN_LENGTH_DAYS && !won;
@@ -391,7 +443,33 @@ export default function Home() {
             <div><span>Total revenue</span><strong>{formatINR(state.cumulativeRevenue)}</strong></div>
             <div><span>Total profit</span><strong className={state.cumulativeProfit >= 0 ? "pos" : "neg"}>{formatINR(state.cumulativeProfit)}</strong></div>
           </div>
-          <button className="primary" onClick={newGame}>Start a new game</button>
+
+          {/* What this run earned the owner, and what is now within reach. */}
+          <div className="ledger-head">What this run earned you</div>
+          <div className="explain-rows">
+            <div><span>You are now</span><strong>{RANK_LABEL[owner.rank]}{owner.runsCompleted > 0 ? ` · ${owner.runsCompleted} run${owner.runsCompleted === 1 ? "" : "s"} finished` : ""}</strong></div>
+            <div><span>Standing as an owner</span><strong>{Math.round(owner.ownerReputation)} / 100</strong></div>
+          </div>
+          {unlockedNow.length > 0 && (
+            <div className="unlocked">
+              <strong>Now open to you</strong>
+              <span>{unlockedNow.join(" · ")}</span>
+            </div>
+          )}
+          {nextUp && (
+            <div className="nextup">
+              <strong>Just out of reach</strong>
+              <span>{nextUp}</span>
+            </div>
+          )}
+          {journey && journey.requirements.length > 0 && (
+            <div className="req-list">
+              {journey.requirements.map(r => (
+                <div key={r.label} className={r.met ? "met" : ""}><i>{r.met ? "✓" : "○"}</i><span>{r.label}</span></div>
+              ))}
+            </div>
+          )}
+          <button className="primary" onClick={newGame}>Open another cafe</button>
         </Screen>
         {feedbackOpen && <FeedbackModal onDone={submitFeedback} />}
       </>
@@ -535,8 +613,12 @@ export default function Home() {
       )}
       {busy && !summary && <div className="backdrop brew-backdrop"><Brewing label={stageFor(state.day).id === "daily" ? "Running the day…" : `Running the ${periodName(state.day)}…`} /></div>}
       {toast && <Toast text={toast} onDone={() => setToast(null)} />}
-      {summary && <DaySummary {...summary} onClose={() => { setSummary(null); const n = readAcumen(after0(summary) as Parameters<typeof readAcumen>[0]).coaching ?? nudgeFor(after0(summary)); if (n && n !== lastToast.current) { lastToast.current = n; setToast(n); } }} />}
-      {!summary && promoted && <PromotionModal {...promoted} onClose={() => setPromoted(null)} />}
+      {summary && <DaySummary {...summary} onClose={() => { setSummary(null); if (queue.length) return; const n = readAcumen(after0(summary) as Parameters<typeof readAcumen>[0]).coaching ?? nudgeFor(after0(summary)); if (n && n !== lastToast.current) { lastToast.current = n; setToast(n); } }} />}
+      {!summary && !toast && queue[0]?.kind === "stage" && (
+        <PromotionModal from={queue[0].from ?? "day"} to={queue[0].to ?? "week"} label={queue[0].label} onClose={showNext} />
+      )}
+      {!summary && !toast && queue[0]?.kind === "rank" && <RankUp label={queue[0].label} onClose={showNext} />}
+      {!summary && !toast && queue[0]?.kind === "strategic" && <StrategicUnlocked onClose={showNext} />}
       {detail && <MetricDetail metric={detail} state={state} onClose={() => setDetail(null)} />}
       {coach >= 0 && <Coach step={coach} onNext={() => setCoach(c => c + 1)} onDone={() => { localStorage.setItem("bs-coached", "1"); setCoach(-1); }} />}
       {explain && (
@@ -563,9 +645,29 @@ export default function Home() {
       {milestonesOpen && <MilestoneModal state={state} onClose={() => setMilestonesOpen(false)} />}
       {historyOpen && <HistoryModal state={state} onClose={() => setHistoryOpen(false)} />}
       {feedbackOpen && <FeedbackModal onDone={submitFeedback} />}
-      {ranked && <RankUp label={ranked.label} onClose={() => setRanked(null)} />}
       <GameFeedback guest={guest} stage={RANK_LABEL[owner.rank]} day={state.day} />
     </main>
+  );
+}
+
+function StrategicUnlocked({ onClose }: { onClose: () => void }) {
+  return (
+    <Modal onClose={onClose}>
+      <div className="promo">
+        <div className="promo-mark">🔓</div>
+        <div className="eyebrow">Three months in</div>
+        <h2>You can start thinking further ahead.</h2>
+        <p>Until now you have been keeping the doors open. From here there are decisions that shape the next six months rather than the next week.</p>
+        <div className="explain-rows">
+          <div><span>Supply contract</span><strong>Deliveries arrive without you ordering</strong></div>
+          <div><span>Hire a manager</span><strong>Someone runs the floor — you choose what matters in them</strong></div>
+          <div><span>Extend opening hours</span><strong>Catch the trade you are missing</strong></div>
+          <div><span>Regulars programme</span><strong>Give people a reason to come back</strong></div>
+        </div>
+        <p className="promo-note">Each is a one-off commitment with an ongoing cost. From day 120 you will also be able to put money back into the place itself.</p>
+        <button className="primary" onClick={onClose}>Show me</button>
+      </div>
+    </Modal>
   );
 }
 
