@@ -103,8 +103,14 @@ export async function POST(request: Request) {
         crewWage: after.dailyWage,
         serviceCapacity: crewCapacity(crew, role, currentState.format),
         staff: crewStaffLevel(crew, role),
-        // Letting people go is noticed by those who remain.
-        reputation: after.headcount < before.headcount ? Math.max(0, currentState.reputation - 1.5) : currentState.reputation,
+        // Both directions cost something. Letting people go unsettles the team and
+        // the work suffers; new hires take a while to be worth their wage.
+        reputation: after.headcount < before.headcount ? Math.max(0, currentState.reputation - 2.5) : currentState.reputation,
+        quality: after.headcount < before.headcount
+          ? Math.max(0, currentState.quality - 3)
+          : after.headcount > before.headcount
+            ? Math.max(0, currentState.quality - 1.5)
+            : currentState.quality,
       } as V2State;
     }
     const primary: Decision = requested.find(d => d !== "no-action") ?? requested[0];
