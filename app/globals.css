@@ -622,3 +622,9 @@ p.lead{font-size:16px;color:var(--ink);opacity:.82}
 .crew-verdict.fair{background:var(--teal-soft);color:var(--teal)}
 .crew-verdict.thin{background:var(--coral-soft);color:#a4432c}
 .crew-verdict.heavy{background:var(--amber-soft);color:#7a5f2e}
+.unlocked{margin-top:10px;padding:11px 13px;border-radius:12px;background:var(--teal-soft);border:1px solid #c9e3dc}
+.unlocked strong{display:block;font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--teal)}
+.unlocked span{display:block;font-size:13.5px;font-weight:650;margin-top:3px}
+.nextup{margin-top:8px;padding:11px 13px;border-radius:12px;background:var(--amber-soft);border:1px solid #f0dfba}
+.nextup strong{display:block;font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:#7a5f2e}
+.nextup span{display:block;font-size:13.5px;font-weight:650;margin-top:3px;color:#7a5f2e}
