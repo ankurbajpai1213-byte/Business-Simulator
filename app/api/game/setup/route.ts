@@ -3,6 +3,7 @@ import { cookies } from "next/headers";
 import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
 import { createConfiguredState, getPreset, type BusinessFormat, type Location, type MenuItemId } from "@/lib/simulation";
 import { CAPITAL_OPTIONS } from "@/lib/capital";
+import { getOwnedSession } from "@/lib/sessionAuth";
 
 const SESSION_COOKIE = "bs_session";
 const PLAYER_COOKIE = "bs_player";
@@ -17,8 +18,10 @@ export async function POST(request: Request) {
 
     const supabase = getSupabaseAdmin();
     if (sessionId) {
-      const { data: session, error: loadError } = await supabase.from("game_sessions").select("id, state, status").eq("id", sessionId).single();
-      if (loadError || !session) return NextResponse.json({ error: "Game session not found." }, { status: 404 });
+      // Only configure a session that belongs to this player. Every other route
+      // already checks this; setup was the last one relying on the cookie alone.
+      const session = await getOwnedSession(sessionId, playerId);
+      if (!session) return NextResponse.json({ error: "Game session not found." }, { status: 404 });
       if (session.status !== "active") return NextResponse.json({ error: "This game is already finished." }, { status: 409 });
       if ((session.state as { setupComplete?: boolean }).setupComplete) return NextResponse.json({ error: "This business is already open. Start a new game to change the setup." }, { status: 409 });
     }
