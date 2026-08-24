@@ -253,7 +253,7 @@ export function CrewPanel({ state, onChange, onClose }: {
     <div className="backdrop" onMouseDown={e => e.target === e.currentTarget && onClose()}>
       <div className="sheet">
         <div className="eyebrow">Your crew</div>
-        <h2>Who is on the floor</h2>
+        <h2>Manage the crew</h2>
         <p className="detail-what">
           You served {state.customers} people yesterday and can handle {state.serviceCapacity}
           {used < 60 ? " — you are paying for hands you are not using." : used > 90 ? " — you are close to turning people away." : "."}
@@ -283,7 +283,12 @@ export function CrewPanel({ state, onChange, onClose }: {
           <div><span>Wages after this</span><strong>{formatINR(after.dailyWage)} a day</strong></div>
           <div><span>Would serve</span><strong>{capacity} people a day</strong></div>
           {hiring > 0 && <div><span>Hiring cost</span><strong>{formatINR(hiring)} once</strong></div>}
-          {after.headcount < before.headcount && <div><span>Letting people go</span><strong>No refund, and it is noticed</strong></div>}
+          {after.headcount < before.headcount && (
+            <div><span>Letting {before.headcount - after.headcount} go</span><strong>No refund. Quality dips while the rest adjust, and the team notices.</strong></div>
+          )}
+          {after.headcount > before.headcount && (
+            <div><span>Taking {after.headcount - before.headcount} on</span><strong>They need a few days to settle in before they are worth their wage.</strong></div>
+          )}
         </div>
         {onChange && (
           <button className="primary" disabled={!dirty} onClick={() => onChange(crew)}>
