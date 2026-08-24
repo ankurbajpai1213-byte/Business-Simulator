@@ -15,7 +15,6 @@ type V2State = GameState & { pendingDelayedEffects?: DelayedEffect[] };
 export async function POST(request: Request) {
   try {
     const body = (await request.json()) as { decision?: Decision; decisions?: Decision[]; eventOption?: string; traits?: { manager?: string[]; supplier?: string[]; investment?: string; crew?: Record<string, number> } };
-    // A turn may only be played on a session belonging to the current player.
     const { sessionId, playerId } = await getSessionIdentity();
     if (!sessionId || !playerId) return NextResponse.json({ error: "No active game session." }, { status: 401 });
     const supabase = getSupabaseAdmin();
@@ -31,7 +30,6 @@ export async function POST(request: Request) {
     let resolvedEventId: GameEventId | null = null;
     let resolvedEventOption: string | null = null;
 
-    // Apply delayed consequences that became due before today's new decision.
     const dueEffects = (currentState.pendingDelayedEffects ?? []).filter((effect) => effect.applyOnDay <= currentState.day);
     if (dueEffects.length) {
       for (const effect of dueEffects) currentState = applyDelayedEffect(currentState, effect) as V2State;
@@ -47,8 +45,6 @@ export async function POST(request: Request) {
       resolvedEventId = currentState.currentEvent.id;
       resolvedEventOption = body.eventOption;
       currentState = applyEvent(currentState, body.eventOption) as V2State;
-
-      // Ignoring a repair should come back to bite, not vanish.
       if (resolvedEventId === "equipment-issue" && body.eventOption === "delay-repair") {
         currentState.pendingDelayedEffects = [
           ...(currentState.pendingDelayedEffects ?? []),
@@ -59,7 +55,6 @@ export async function POST(request: Request) {
       }
     }
 
-    // Accept a list of actions; a single decision stays valid for older clients.
     const requested: Decision[] = Array.isArray(body.decisions) && body.decisions.length
       ? body.decisions
       : body.decision ? [body.decision] : [];
@@ -69,13 +64,23 @@ export async function POST(request: Request) {
     const slots = slotsForTurn(expectedDay);
     if (requested.length > slots) return NextResponse.json({ error: `You can take at most ${slots} action${slots > 1 ? "s" : ""} this turn.` }, { status: 400 });
 
+    // Crew management is authoritative for staffing. Do not allow the old generic
+    // hire mutation to run as well, and require the actual crew selection.
+    if (requested.includes("hire") && !body.traits?.crew) {
+      return NextResponse.json({ error: "Choose the crew changes you want to make first." }, { status: 400 });
+    }
+
     const stateBeforeDecision = currentState;
-    // Validate and apply in order; each must still be affordable after the previous one.
     for (const action of requested) {
-      if (!isDecisionAvailable(currentState, action)) return NextResponse.json({ error: "One of those actions is not available yet, is already at its maximum, or there is not enough cash for it." }, { status: 409 });
+      // Firing must remain possible even when cash is low. All other decisions keep
+      // their normal availability/cash checks.
+      if (action !== "hire" && !isDecisionAvailable(currentState, action)) {
+        return NextResponse.json({ error: "One of those actions is not available yet, is already at its maximum, or there is not enough cash for it." }, { status: 409 });
+      }
+      if (action === "hire") continue;
       currentState = applyDecision(currentState, action) as V2State;
     }
-    // Record what the player actually chose in a manager, a supplier or a project.
+
     if (requested.includes("hire-manager") && body.traits?.manager?.length) {
       const salary = managerSalary(body.traits.manager as ManagerTrait[]);
       currentState = { ...currentState, managerProfile: { traits: body.traits.manager, hiredOnDay: currentState.day, salaryDaily: salary } } as V2State;
@@ -91,7 +96,10 @@ export async function POST(request: Request) {
       currentState = { ...currentState, cash: currentState.cash - chosen.cost,
         investments: [...((currentState as { investments?: string[] }).investments ?? []), chosen.id] } as V2State;
     }
-    // Hiring or letting people go changes the wage bill and what you can serve.
+
+    // Calculate the staffing delta from the actual before/after crew. Hiring costs
+    // are charged only for new people; firing costs nothing. The old generic ₹18,000
+    // hire charge and +10 staff/+15 capacity mutation are deliberately bypassed.
     if (requested.includes("hire") && body.traits?.crew) {
       const crew = body.traits.crew;
       const before = crewCost((currentState as { crew?: Crew }).crew ?? {});
@@ -103,8 +111,6 @@ export async function POST(request: Request) {
         crewWage: after.dailyWage,
         serviceCapacity: crewCapacity(crew, role, currentState.format),
         staff: crewStaffLevel(crew, role),
-        // Both directions cost something. Letting people go unsettles the team and
-        // the work suffers; new hires take a while to be worth their wage.
         reputation: after.headcount < before.headcount ? Math.max(0, currentState.reputation - 2.5) : currentState.reputation,
         quality: after.headcount < before.headcount
           ? Math.max(0, currentState.quality - 3)
@@ -113,30 +119,27 @@ export async function POST(request: Request) {
             : currentState.quality,
       } as V2State;
     }
+
     const primary: Decision = requested.find(d => d !== "no-action") ?? requested[0];
     const turnSpend = Math.max(0, turnCashBefore - currentState.cash);
     const rainToday = resolvedEventId === "rain";
 
-    // The turn may cover one day, a week, a fortnight or a month.
     const span = daysThisTurn(expectedDay);
     const fromDay = currentState.day;
     let nextState = currentState;
     const report: SpanReport = { interrupted: null, days: span, fromDay, toDay: fromDay, revenue: 0, profit: 0, customers: 0, bestDay: null, worstDay: null, profitableDays: 0, lossDays: 0 };
 
     for (let i = 0; i < span; i += 1) {
-      // Immediate spend and any event weather only land on the first day of the span.
       const dayDecision = primary;
       const spend = i === 0 ? turnSpend : 0;
       const rain = i === 0 ? rainToday : false;
 
-      // Delayed consequences falling due inside the span still land on time.
       const due = (nextState.pendingDelayedEffects ?? []).filter(e => e.applyOnDay <= nextState.day);
       if (due.length) {
         for (const effect of due) nextState = applyDelayedEffect(nextState, effect) as V2State;
         nextState.pendingDelayedEffects = (nextState.pendingDelayedEffects ?? []).filter(e => e.applyOnDay > nextState.day);
       }
 
-      // Do not simulate a day the business cannot trade through.
       if (i > 0 && nextState.inventory < 2) {
         report.interrupted = { day: nextState.day, reason: "stockout", message: "You have run out of supplies. The cafe cannot open again until you restock." };
         report.days = i;
@@ -155,22 +158,12 @@ export async function POST(request: Request) {
       const snapshot = { day: dayNumber, customers: nextState.customers, profit: Math.round(nextState.profit) };
       if (!report.bestDay || snapshot.profit > report.bestDay.profit) report.bestDay = snapshot;
       if (!report.worstDay || snapshot.profit < report.worstDay.profit) report.worstDay = snapshot;
+      if (nextState.cash <= 0) break;
 
-      if (nextState.cash <= 0) break; // stop early rather than simulate a dead business
-
-      // The business should not sit closed for days the player cannot influence.
-      // Interruptions are for genuine emergencies only — a turn that constantly
-      // breaks apart defeats the whole point of planning further ahead.
       const lastDayOfSpan = i === span - 1;
       const daysRun = i + 1;
       const enoughRun = daysRun >= Math.max(2, Math.ceil(span * 0.5));
       if (!lastDayOfSpan) {
-        // An emergency stops the period immediately, however early it happens.
-        // Waiting for "enough" days to pass is how a cafe ends up shut for three
-        // days the player never got to see.
-        // Having warned the player once, do not warn again the moment the next
-        // turn starts. Otherwise ignoring the warning produces a chain of
-        // one-day turns instead of letting the consequences land.
         const warnedRecently = nextState.day - (nextState.lastInterruptDay || 0) < 4;
         let stop: Interruption | null = null;
         if (nextState.inventory < 14 && !warnedRecently) {
@@ -181,9 +174,6 @@ export async function POST(request: Request) {
         if (stop) { nextState.lastInterruptDay = nextState.day; report.interrupted = stop; report.days = i + 1; break; }
       }
       if (!lastDayOfSpan && enoughRun) {
-
-        // Only a serious situation is worth breaking the period for. Everything
-        // milder waits and is presented when the turn finishes.
         const midEvent = span >= 7 ? generateEvent(nextState) : null;
         if (midEvent && midEvent.severity >= 3) {
           nextState.currentEvent = midEvent;
@@ -195,7 +185,6 @@ export async function POST(request: Request) {
       }
     }
 
-    // Queue consequences so the decision can matter after the day it was made.
     const newEffects = requested.flatMap(action => createDelayedEffects(stateBeforeDecision, action, expectedDay));
     nextState.pendingDelayedEffects = [
       ...(nextState.pendingDelayedEffects ?? []),
