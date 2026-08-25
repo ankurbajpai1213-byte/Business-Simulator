@@ -54,14 +54,24 @@ export const atLeast = (have: Rank, need: Rank) => rankIndex(have) >= rankIndex(
 
 export type Gate = { value: number; label: string; rank: Rank; ownerReputation?: number; acumen?: number };
 
+/**
+ * Capital progression is an owner-level reward, not a current-business metric.
+ * Once a player reaches a rank, all capital tiers assigned to that rank and
+ * every lower tier remain available on future runs.
+ *
+ * Agreed ladder:
+ *   Founder  -> ₹5L, ₹10L
+ *   Operator -> ₹20L, ₹35L
+ *   Manager  -> ₹50L
+ *
+ * Do not use current-run Acumen or current-business state to lock these tiers.
+ */
 export const CAPITAL_GATES: Gate[] = [
   { value: 500000,  label: "₹5L",  rank: "founder" },
   { value: 1000000, label: "₹10L", rank: "founder" },
-  { value: 1500000, label: "₹15L", rank: "founder" },
-  { value: 2000000, label: "₹20L", rank: "operator", ownerReputation: 45 },
-  { value: 2500000, label: "₹25L", rank: "operator", ownerReputation: 55 },
-  { value: 3500000, label: "₹35L", rank: "operator", acumen: 60 },
-  { value: 5000000, label: "₹50L", rank: "manager", ownerReputation: 70 },
+  { value: 2000000, label: "₹20L", rank: "operator" },
+  { value: 3500000, label: "₹35L", rank: "operator" },
+  { value: 5000000, label: "₹50L", rank: "manager" },
 ];
 
 export const FORMAT_GATES: Array<{ id: string; rank: Rank; ownerReputation?: number }> = [
@@ -110,11 +120,8 @@ export function updateOwnerReputation(owner: OwnerProfile, run: RunOutcome): num
   else if (run.bankrupt) rep -= 9;
   else if (run.daysSurvived >= 90 && run.cumulativeProfit > 0) rep += 6;
   else if (run.daysSurvived >= 90) rep += 2;
-  // Doing it well counts for more than doing it once.
   if (run.businessReputation >= 70) rep += 3;
   if (run.cumulativeProfit > 2000000) rep += 4;
-  // Standing gets harder to build the higher it goes — the last stretch has to be
-  // earned over several runs, not handed over after two good ones.
   if (rep > owner.ownerReputation) {
     const gain = rep - owner.ownerReputation;
     const damping = owner.ownerReputation >= 80 ? 0.35 : owner.ownerReputation >= 65 ? 0.55 : owner.ownerReputation >= 50 ? 0.75 : 1;
