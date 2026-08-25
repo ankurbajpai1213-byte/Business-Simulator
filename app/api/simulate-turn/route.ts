@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
 import { applyDecision, advanceDay, applyEvent, generateEvent, isDecisionAvailable, type Decision, type GameEventId, type GameState } from "@/lib/simulation";
 import { applyDelayedEffect, createDelayedEffects, shouldShowMilestone, type DelayedEffect } from "@/lib/simulation-engine-v2";
+import { applyEventConsequence, applyOperationalEffects, canHireCook, normaliseCrewForKitchen } from "@/lib/eventConsequences";
 import { daysThisTurn, slotsForTurn, RUN_LENGTH_DAYS, type Interruption, type SpanReport } from "@/lib/cadence";
 import { getSessionIdentity, getOwnedSession } from "@/lib/sessionAuth";
 import { managerSalary, type ManagerTrait } from "@/lib/people";
@@ -10,7 +11,7 @@ import { crewCost, crewCapacity, crewStaffLevel, type Crew, type OwnerRole } fro
 
 const SESSION_COOKIE = "bs_session";
 const decisions = new Set<Decision>(["raise-price", "lower-price", "marketing", "hire", "quality", "inventory", "inventory-2", "inventory-3", "no-action", "supply-contract", "hire-manager", "extend-hours", "loyalty-programme", "reinvest"]);
-type V2State = GameState & { pendingDelayedEffects?: DelayedEffect[] };
+type V2State = GameState & { pendingDelayedEffects?: DelayedEffect[]; operationalEffects?: import("@/lib/eventConsequences").OperationalEffect[] };
 
 export async function POST(request: Request) {
   try {
@@ -30,6 +31,8 @@ export async function POST(request: Request) {
     let resolvedEventId: GameEventId | null = null;
     let resolvedEventOption: string | null = null;
 
+    currentState = applyOperationalEffects(currentState);
+
     const dueEffects = (currentState.pendingDelayedEffects ?? []).filter((effect) => effect.applyOnDay <= currentState.day);
     if (dueEffects.length) {
       for (const effect of dueEffects) currentState = applyDelayedEffect(currentState, effect) as V2State;
@@ -45,6 +48,7 @@ export async function POST(request: Request) {
       resolvedEventId = currentState.currentEvent.id;
       resolvedEventOption = body.eventOption;
       currentState = applyEvent(currentState, body.eventOption) as V2State;
+      currentState = applyEventConsequence(currentState, resolvedEventId, body.eventOption) as V2State;
       if (resolvedEventId === "equipment-issue" && body.eventOption === "delay-repair") {
         currentState.pendingDelayedEffects = [
           ...(currentState.pendingDelayedEffects ?? []),
@@ -64,16 +68,12 @@ export async function POST(request: Request) {
     const slots = slotsForTurn(expectedDay);
     if (requested.length > slots) return NextResponse.json({ error: `You can take at most ${slots} action${slots > 1 ? "s" : ""} this turn.` }, { status: 400 });
 
-    // Crew management is authoritative for staffing. Do not allow the old generic
-    // hire mutation to run as well, and require the actual crew selection.
     if (requested.includes("hire") && !body.traits?.crew) {
       return NextResponse.json({ error: "Choose the crew changes you want to make first." }, { status: 400 });
     }
 
     const stateBeforeDecision = currentState;
     for (const action of requested) {
-      // Firing must remain possible even when cash is low. All other decisions keep
-      // their normal availability/cash checks.
       if (action !== "hire" && !isDecisionAvailable(currentState, action)) {
         return NextResponse.json({ error: "One of those actions is not available yet, is already at its maximum, or there is not enough cash for it." }, { status: 409 });
       }
@@ -97,11 +97,11 @@ export async function POST(request: Request) {
         investments: [...((currentState as { investments?: string[] }).investments ?? []), chosen.id] } as V2State;
     }
 
-    // Calculate the staffing delta from the actual before/after crew. Hiring costs
-    // are charged only for new people; firing costs nothing. The old generic ₹18,000
-    // hire charge and +10 staff/+15 capacity mutation are deliberately bypassed.
     if (requested.includes("hire") && body.traits?.crew) {
-      const crew = body.traits.crew;
+      const crew = body.traits.crew as Crew;
+      if ((crew.cook ?? 0) > 0 && !canHireCook(currentState)) {
+        return NextResponse.json({ error: "A cook requires a full-service kitchen or the kitchen-upgrade investment." }, { status: 409 });
+      }
       const before = crewCost((currentState as { crew?: Crew }).crew ?? {});
       const after = crewCost(crew);
       const hiring = Math.max(0, after.hiringCost - before.hiringCost);
@@ -120,6 +120,8 @@ export async function POST(request: Request) {
       } as V2State;
     }
 
+    currentState = normaliseCrewForKitchen(currentState);
+
     const primary: Decision = requested.find(d => d !== "no-action") ?? requested[0];
     const turnSpend = Math.max(0, turnCashBefore - currentState.cash);
     const rainToday = resolvedEventId === "rain";
@@ -134,6 +136,7 @@ export async function POST(request: Request) {
       const spend = i === 0 ? turnSpend : 0;
       const rain = i === 0 ? rainToday : false;
 
+      nextState = applyOperationalEffects(nextState);
       const due = (nextState.pendingDelayedEffects ?? []).filter(e => e.applyOnDay <= nextState.day);
       if (due.length) {
         for (const effect of due) nextState = applyDelayedEffect(nextState, effect) as V2State;
@@ -250,6 +253,7 @@ export async function POST(request: Request) {
         milestones: nextState.milestones,
         delayedEffectsQueued: newEffects,
         delayedEffectsApplied: dueEffects,
+        operationalEffects: nextState.operationalEffects ?? [],
         dayMessage: nextState.lastDayMessage,
         spanDays: span,
         spanReport: report,
@@ -259,7 +263,7 @@ export async function POST(request: Request) {
     if (eventError) throw eventError;
     return NextResponse.json({ state: nextState, status, report, dayMessage: nextState.lastDayMessage });
   } catch (error) {
-    console.error("[simulate-turn] failed", error);
-    return NextResponse.json({ error: "Unable to advance simulation." }, { status: 500 });
+    console.error("[simulate-turn] Simulation failed", error);
+    return NextResponse.json({ error: error instanceof Error ? error.message : "Unable to simulate turn." }, { status: 400 });
   }
 }
