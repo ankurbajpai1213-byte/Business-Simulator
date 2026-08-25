@@ -47,80 +47,125 @@ function recalcStaffing(state: MutableState, crew: Crew): MutableState {
   };
 }
 
+function queueReturn(state: MutableState, role: RoleId, days: number, label: string): MutableState {
+  const effect: OperationalEffect = {
+    id: `${role}-return-${state.day}-${days}`,
+    sourceDay: state.day,
+    applyOnDay: state.day + days,
+    label,
+    crewRole: role,
+    crewDelta: 1,
+  };
+  return { ...state, operationalEffects: [...(state.operationalEffects ?? []), effect] };
+}
+
 /**
- * Applies consequences that must change the operational business state, rather
- * than merely changing a headline stat. Event options are deliberately mapped
- * here so the event library can remain narrative while this layer owns the
- * simulation consequences.
+ * Converts event choices into changes to the actual operating model.
+ *
+ * `applyEvent` owns the headline metrics (cash, reputation, quality, etc.).
+ * This layer owns consequences that must touch the underlying business
+ * machinery: crew, capacity, payroll and temporary absences.
  */
 export function applyEventConsequence(state: MutableState, eventId: GameEventId, option: string): MutableState {
   let next = state;
   const crew = { ...(next.crew ?? {}) } as Crew;
 
   switch (eventId) {
-    case "staff-poached":
-      if (option === "let-them-go" || option === "take-the-counteroffer") {
+    case "staff-poached": {
+      if (option === "match-offer-staff") {
+        // The counteroffer is a real recurring cost, not just a morale boost.
+        next = { ...next, crewWage: Math.round((next.crewWage ?? 0) * 1.10), staff: Math.min(100, next.staff + 4) };
+      } else if (option === "let-them-go") {
         const removed = removeOne(crew, ["server", "barista", "cook", "manager"]);
         if (removed.role) next = recalcStaffing(next, removed.crew);
-        next = { ...next, quality: Math.max(0, next.quality - 2), reputation: Math.max(0, next.reputation - 1) };
       }
       break;
+    }
 
-    case "loyal-underperformer":
-      if (["let-them-go", "fire-them", "terminate", "move-them"].includes(option)) {
-        const removed = removeOne(crew, ["server", "barista", "cook"]);
-        if (removed.role) next = recalcStaffing(next, removed.crew);
-        next = { ...next, quality: Math.min(100, next.quality + 2) };
-      }
-      break;
-
-    case "ageing-server":
-      if (["replace-them", "let-them-go", "retire-them"].includes(option)) {
-        const removed = removeOne(crew, ["server"]);
-        if (removed.role) next = recalcStaffing(next, removed.crew);
+    case "staff-raise":
+      if (option === "give-raise") {
+        next = { ...next, crewWage: Math.round((next.crewWage ?? 0) * 1.08) };
       }
       break;
 
     case "struggling-cook":
-      if (["replace-cook", "let-them-go", "fire-cook"].includes(option)) {
+      if (option === "replace-cook") {
         const removed = removeOne(crew, ["cook"]);
         if (removed.role) next = recalcStaffing(next, removed.crew);
-        next = { ...next, quality: Math.min(100, next.quality + 3) };
+      } else if (option === "second-cook") {
+        next = recalcStaffing(next, addOne(crew, "cook"));
+      } else if (option === "give-time-off") {
+        const removed = removeOne(crew, ["cook"]);
+        if (removed.role) {
+          next = recalcStaffing(next, removed.crew);
+          next = queueReturn(next, removed.role, 14, "Your cook has returned after the two weeks of paid leave");
+        }
       }
       break;
 
-    case "staff-raise":
-      if (["grant-raise", "approve-raise", "give-raise"].includes(option)) {
-        next = { ...next, crewWage: Math.round((next.crewWage ?? 0) * 1.08) };
-      } else if (["refuse-raise", "deny-raise"].includes(option)) {
-        next = { ...next, reputation: Math.max(0, next.reputation - 2), quality: Math.max(0, next.quality - 1) };
+    case "ageing-server":
+      if (option === "let-him-go") {
+        const removed = removeOne(crew, ["server"]);
+        if (removed.role) next = recalcStaffing(next, removed.crew);
+      } else if (option === "quieter-shifts") {
+        next = { ...next, capacityDelta: undefined, quality: Math.max(0, next.quality - 1) };
+      } else if (option === "keep-as-is") {
+        next = { ...next, quality: Math.max(0, next.quality - 2) };
       }
       break;
 
-    case "family-illness":
-    case "staff-absence": {
-      const leaveDays = eventId === "family-illness" ? 30 : 7;
-      if (["hold-the-job", "unpaid-hold", "approve-leave", "grant-leave", "let-them-go"].includes(option)) {
-        const preferred: RoleId[] = ["cook", "barista", "server", "manager"];
+    case "family-illness": {
+      const preferred: RoleId[] = ["cook", "server", "barista", "manager"];
+      if (option === "hold-the-job" || option === "unpaid-hold") {
         const removed = removeOne(crew, preferred);
         if (removed.role) {
           next = recalcStaffing(next, removed.crew);
-          const effect: OperationalEffect = {
-            id: `leave-${eventId}-${next.day}`,
-            sourceDay: next.day,
-            applyOnDay: next.day + leaveDays,
-            label: `The employee who took leave returns after ${leaveDays} days`,
-            crewRole: removed.role,
-            crewDelta: 1,
-          };
-          next.operationalEffects = [...(next.operationalEffects ?? []), effect];
-          next = { ...next, quality: Math.max(0, next.quality - 2) };
+          next = queueReturn(next, removed.role, 30, "The employee who took family leave has returned to the team");
+          if (option === "hold-the-job") {
+            next = { ...next, cash: Math.max(0, next.cash - 14000) };
+          }
         }
-      } else if (["cover-shift", "temporary-cover", "hire-cover"].includes(option)) {
-        next = { ...next, cash: Math.max(0, next.cash - 8000), quality: Math.max(0, next.quality - 0.5) };
+      } else if (option === "fill-position") {
+        // A replacement keeps the operating headcount intact, but is less settled.
+        const removed = removeOne(crew, preferred);
+        if (removed.role) {
+          next = recalcStaffing(next, addOne(removed.crew, removed.role));
+          next = { ...next, quality: Math.max(0, next.quality - 1.5) };
+        }
       }
       break;
     }
+
+    case "loyal-underperformer":
+      if (option === "train-them") {
+        next = { ...next, quality: Math.min(100, next.quality + 2), staff: Math.min(100, next.staff + 2) };
+      } else if (option === "move-them") {
+        next = { ...next, serviceCapacity: Math.max(20, next.serviceCapacity - 10), quality: Math.min(100, next.quality + 1) };
+      } else if (option === "let-them-go-loyal") {
+        const removed = removeOne(crew, ["server", "barista", "cook"]);
+        if (removed.role) next = recalcStaffing(next, removed.crew);
+      }
+      break;
+
+    // These choices alter the operating conditions beyond a single headline stat.
+    case "water-shortage":
+      if (option === "limited-menu") next = { ...next, serviceCapacity: Math.max(20, Math.round(next.serviceCapacity * 0.75)) };
+      break;
+
+    case "festival-rush":
+      if (option === "stock-up-festival") next = { ...next, serviceCapacity: Math.min(600, next.serviceCapacity + 15) };
+      break;
+
+    case "catering-enquiry":
+      if (option === "take-catering") next = { ...next, quality: Math.max(0, next.quality - 1) };
+      break;
+
+    case "rival-closes":
+      if (option === "hire-their-staff") {
+        // Hiring is deliberately represented as a real crew member rather than only staff points.
+        next = recalcStaffing(next, addOne(crew, "barista"));
+      }
+      break;
 
     default:
       break;
